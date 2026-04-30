@@ -37,7 +37,7 @@ def f(t, z):
 if __name__ == "__main__":
     # time span
     t0 = 0
-    t1 = 2
+    t1 = 10
     t_span = (t0, t1)
 
     # method = "BDF"
