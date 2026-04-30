@@ -4,9 +4,6 @@
 <a href="https://github.com/SolveDAE/solve_dae/actions/workflows/main.yml/badge.svg">
 	<img alt="Actions Status" src="https://github.com/SolveDAE/solve_dae/actions/workflows/main.yml/badge.svg">
 </a>
-<!-- <a href="https://codecov.io/gh/JonasBreuling/scipy_dae/branch/main">
-<img src="https://codecov.io/gh/JonasBreuling/scipy_dae/branch/main/graph/badge.svg" alt="Code coverage status badge">
-</a> -->
 <a href="https://codecov.io/gh/SolveDAE/solve_dae">
   	<img src="https://codecov.io/gh/SolveDAE/solve_dae/branch/main/graph/badge.svg" alt="Code coverage status badge">
 </a>
@@ -30,7 +27,9 @@ More information about both methods are given in the specific class documentatio
 
 The [Kármán vortex street](https://en.wikipedia.org/wiki/K%C3%A1rm%C3%A1n_vortex_street) solved by a finite element discretization of the [weak form of the incompressible Navier-Stokes equations](https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations#Weak_form) using [FEniCS](https://fenicsproject.org/) and the three stage Radau IIA method.
 
-[![Karman](https://github.com/user-attachments/assets/3f5202f7-7666-4e4a-94dc-26f0759abef7)](https://raw.githubusercontent.com/JonasBreuling/scipy_dae/main/data/img/von_Karman.gif)
+[![Karman](https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/von_Karman.gif)](
+https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/von_Karman.gif
+)
 
 ## Basic usage
 
@@ -39,7 +38,7 @@ The Robertson problem of semi-stable chemical reaction is a simple system of dif
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy_dae.integrate import solve_dae
+from solve_dae.integrate import solve_dae
 
 
 def F(t, y, yp):
@@ -87,7 +86,7 @@ ax.grid()
 plt.show()
 ```
 
-![Robertson](https://raw.githubusercontent.com/JonasBreuling/scipy_dae/main/data/img/Robertson.png)
+![Robertson](https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/Robertson.png)
 
 ## Advanced usage
 
@@ -134,7 +133,7 @@ For the consistent initial conditions $t_0 = 0$, $y_1(t_0) = 1$, $y_2(t_0) = 0$,
 
 This problem is solved for $atol = rtol = 10^{-(1 + m / 4)}$, where $m = 0, \dots, 45$. The resulting error at $t_1 = 10$ is compared with the elapsed time of the used solvers in the figure below. For reference, the work-precision diagram of [sundials IDA solver](https://computing.llnl.gov/projects/sundials/ida) is also added. Note that the elapsed time is scaled by a factor of 100 since the sundials C-code is way faster.
 
-![Brenan_work_precision](https://raw.githubusercontent.com/JonasBreuling/scipy_dae/main/data/img/Brenan_work_precision.png)
+![Brenan_work_precision](https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/Brenan_work_precision.png)
 
 Clearly, the family of Radau IIA methods outplay the BDF/NDF methods for low tolerances. For medium to high tolerances, both methods are appropriate.
 
@@ -142,7 +141,7 @@ Clearly, the family of Radau IIA methods outplay the BDF/NDF methods for low tol
 
 Similar results are obtained for the Robertson problem. Since this problem does not have an analtical solution, the reference solution is taken from the [archimede ivp testset](https://archimede.uniba.it/~testset/report/rober.pdf). Since all three Radau IIA methods show saturation, it is questionable whether the reference solution is accurate enough.
 
-![Robertson_work_precision](https://raw.githubusercontent.com/JonasBreuling/scipy_dae/main/data/img/Robertson_work_precision.png) -->
+![Robertson_work_precision](https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/Robertson_work_precision.png) -->
 
 ### Index 2 DAE - knife edge
 
@@ -193,7 +192,7 @@ with the Lagrange multiplier $\dot{\Lambda}(t) = - 2g \sin\alpha \sin(\Omega t)$
 
 This problem is solved for $atol = rtol = 10^{-(1 + m / 4)}$, where $m = 0, \dots, 32$. The resulting error at $t_1 = 2 \pi / \Omega$ is compared with the elapsed time of the used solvers in the figure below.
 
-![knife_edge_work_precision](https://raw.githubusercontent.com/JonasBreuling/scipy_dae/main/data/img/knife_edge_work_precision.png)
+![knife_edge_work_precision](https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/knife_edge_work_precision.png)
 
 ### Index 3 DAE - Arevalo
 
@@ -239,7 +238,7 @@ with the Lagrange multipliers $\dot{\Lambda} = -4t^2$ and $\dot{\Gamma} = 0$.
 
 This problem is solved for $atol = rtol = 10^{-(3 + m / 4)}$, where $m = 0, \dots, 24$. The resulting error at $t_1 = 5$ is compared with the elapsed time of the used solvers in the figure below.
 
-![Arevalo_work_precision](https://raw.githubusercontent.com/JonasBreuling/scipy_dae/main/data/img/Arevalo_work_precision.png)
+![Arevalo_work_precision](https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/Arevalo_work_precision.png)
 
 ### IDE - Weissinger
 
@@ -253,7 +252,7 @@ It has the analytical solution $y(t) = \sqrt{t^2 + \frac{1}{2}}$ and $\dot{y}(t)
 
 Starting at $t_0 = \sqrt{1 / 2}$, this problem is solved for $atol = rtol = 10^{-(4 + m / 4)}$, where $m = 0, \dots, 28$. The resulting error at $t_1 = 10$ is compared with the elapsed time of the used solvers in the figure below.
 
-![Weissinger_work_precision](https://raw.githubusercontent.com/JonasBreuling/scipy_dae/main/data/img/Weissinger_work_precision.png)
+![Weissinger_work_precision](https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/Weissinger_work_precision.png)
 
 ### Nonlinear index 1 DAE - Kvaernø
 
@@ -270,7 +269,7 @@ It has the analytical solution $y_1(t) = t^4 e^{-t}$, $y_2(t) = t^3 e^{-t} (4 - 
 
 Starting at $t_0 = 0.5$, this problem is solved for $atol = rtol = 10^{-(4 + m / 4)}$, where $m = 0, \dots, 32$. The resulting error at $t_1 = 1$ is compared with the elapsed time of the used solvers in the figure below.
 
-![Kvaerno_work_precision](https://raw.githubusercontent.com/JonasBreuling/scipy_dae/main/data/img/Kvaerno_work_precision.png)
+![Kvaerno_work_precision](https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/Kvaerno_work_precision.png)
 
 ## Install
 ### Install through pip
