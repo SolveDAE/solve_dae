@@ -1,19 +1,20 @@
 # solve_dae - solving differential algebraic equations (DAEs) and implicit differential equations (IDEs) in Python
 
-homepage = "https://github.com/SolveDAE/solve_dae"
-documentaton = "https://github.com/SolveDAE/solve_dae"
-source = "https://github.com/SolveDAE/solve_dae"
-download = "https://github.com/SolveDAE/solve_dae/releases"
-tracker = "https://github.com/SolveDAE/solve_dae/issues"
-
-
 <p align="center">
-<a href="https://github.com/SolveDAE/solve_dae/actions/workflows/main.yml/badge.svg"><img alt="Actions Status" src="https://github.com/SolveDAE/solve_dae/actions/workflows/main.yml/badge.svg"></a>
-<a href="https://codecov.io/gh/JonasBreuling/scipy_dae/branch/main">
-<img src="https://codecov.io/gh/JonasBreuling/scipy_dae/branch/main/graph/badge.svg" alt="Code coverage status badge">
+<a href="https://github.com/SolveDAE/solve_dae/actions/workflows/main.yml/badge.svg">
+	<img alt="Actions Status" src="https://github.com/SolveDAE/solve_dae/actions/workflows/main.yml/badge.svg">
 </a>
-<a href="https://img.shields.io/badge/License-BSD_3--Clause-blue.svg"><img alt="License: BSD 3" src="https://img.shields.io/badge/License-BSD_3--Clause-blue.svg"></a>
-<a href="https://pypi.org/project/scipy_dae/"><img alt="PyPI" src="https://img.shields.io/pypi/v/scipy_dae"></a>
+<!-- <a href="https://codecov.io/gh/JonasBreuling/scipy_dae/branch/main">
+<img src="https://codecov.io/gh/JonasBreuling/scipy_dae/branch/main/graph/badge.svg" alt="Code coverage status badge">
+</a> -->
+<a href="https://codecov.io/gh/SolveDAE/solve_dae">
+  	<img src="https://codecov.io/gh/SolveDAE/solve_dae/branch/main/graph/badge.svg" alt="Code coverage status badge">
+</a>
+<a href="https://img.shields.io/badge/License-BSD_3--Clause-blue.svg">
+	<img alt="License: BSD 3" src="https://img.shields.io/badge/License-BSD_3--Clause-blue.svg">
+</a>
+<a href="https://pypi.org/project/scipy_dae/">
+	<img alt="PyPI" src="https://img.shields.io/pypi/v/scipy_dae"></a>
 </p>
 
 Python implementation of solvers for differential algebraic equations (DAEs) and implicit differential equations (IDEs) that should be added to scipy one day.
