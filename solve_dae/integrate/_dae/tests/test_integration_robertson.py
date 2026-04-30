@@ -1,7 +1,7 @@
 from itertools import product
 from numpy.testing import suppress_warnings
 import pytest
-from scipy_dae.integrate import solve_dae
+from solve_dae.integrate import solve_dae
 
 
 parameters_stiff = ["BDF", "Radau"]

@@ -3,7 +3,7 @@ import numpy as np
 from numpy.testing import assert_, assert_equal
 import pytest
 from scipy.sparse import identity
-from scipy_dae.integrate import solve_dae
+from solve_dae.integrate import solve_dae
 from scipy.integrate._ivp.tests.test_ivp import fun_complex, jac_complex, jac_complex_sparse, sol_complex
 from scipy.integrate._ivp.tests.test_ivp import compute_error
 

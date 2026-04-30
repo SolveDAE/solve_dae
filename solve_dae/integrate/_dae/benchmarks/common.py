@@ -1,7 +1,7 @@
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy_dae.integrate import solve_dae
+from solve_dae.integrate import solve_dae
 
 
 solvers = [
@@ -78,23 +78,23 @@ def benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, name, y_ref=None, y_idx=Non
         ax.plot(ri[:, 0], ri[:, 1], label=solvers[i])
 
     if name == "Brenan":
-        result_IDA = np.loadtxt("scipy_dae/integrate/_dae/benchmarks/brenan/brenan_errors_IDA.csv", delimiter=',')
+        result_IDA = np.loadtxt("solve_dae/integrate/_dae/benchmarks/brenan/brenan_errors_IDA.csv", delimiter=',')
         result_IDA[:, 1] *= 100 # scale elapsed time by 100
         ax.plot(*result_IDA.T, label="sundials IDA (elapsed time *= 100)")
     elif name == "Robertson":
-        result_IDA = np.loadtxt("scipy_dae/integrate/_dae/benchmarks/robertson/robertson_errors_IDA.csv", delimiter=',')
+        result_IDA = np.loadtxt("solve_dae/integrate/_dae/benchmarks/robertson/robertson_errors_IDA.csv", delimiter=',')
         result_IDA[:, 1] *= 100 # scale elapsed time by 100
         ax.plot(*result_IDA.T, label="sundials IDA (elapsed time *= 100)")
     elif name == "Knife edge":
-        result_IDA = np.loadtxt("scipy_dae/integrate/_dae/benchmarks/knife_edge/knife_edge_errors_IDA.csv", delimiter=',')
+        result_IDA = np.loadtxt("solve_dae/integrate/_dae/benchmarks/knife_edge/knife_edge_errors_IDA.csv", delimiter=',')
         result_IDA[:, 1] *= 100 # scale elapsed time by 100
         ax.plot(*result_IDA.T, label="sundials IDA (elapsed time *= 100)")
     elif name == "Arevalo":
-        result_IDA = np.loadtxt("scipy_dae/integrate/_dae/benchmarks/arevalo/arevalo_errors_IDA.csv", delimiter=',')
+        result_IDA = np.loadtxt("solve_dae/integrate/_dae/benchmarks/arevalo/arevalo_errors_IDA.csv", delimiter=',')
         result_IDA[:, 1] *= 100 # scale elapsed time by 100
         ax.plot(*result_IDA.T, label="sundials IDA (elapsed time *= 100)")
     elif name == "Weissinger":
-        result_IDA = np.loadtxt("scipy_dae/integrate/_dae/benchmarks/weissinger/weissinger_errors_IDA.csv", delimiter=',')
+        result_IDA = np.loadtxt("solve_dae/integrate/_dae/benchmarks/weissinger/weissinger_errors_IDA.csv", delimiter=',')
         result_IDA[:, 1] *= 500 # scale elapsed time by 500
         ax.plot(*result_IDA.T, label="sundials IDA (elapsed time *= 500)")
 

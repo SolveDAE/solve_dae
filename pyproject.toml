@@ -3,7 +3,7 @@ build-backend = "mesonpy"
 requires = ["meson-python>=0.16.0"]
 
 [project]
-name = "scipy_dae"
+name = "solve_dae"
 version = "0.1.0"
 authors = [
   { name="Jonas Breuling", email="jonas.breuling@inm.uni-stuttgart.de" },
@@ -44,8 +44,8 @@ dev = [
 ]
 
 [project.urls]
-homepage = "https://github.com/JonasBreuling/scipy_dae"
-documentaton = "https://github.com/JonasBreuling/scipy_dae"
-source = "https://github.com/JonasBreuling/scipy_dae"
-download = "https://github.com/JonasBreuling/scipy_dae/releases"
-tracker = "https://github.com/JonasBreuling/scipy_dae/issues"
+homepage = "https://github.com/SolveDAE/solve_dae"
+documentaton = "https://github.com/SolveDAE/solve_dae"
+source = "https://github.com/SolveDAE/solve_dae"
+download = "https://github.com/SolveDAE/solve_dae/releases"
+tracker = "https://github.com/SolveDAE/solve_dae/issues"

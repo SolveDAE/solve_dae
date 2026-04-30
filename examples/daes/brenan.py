@@ -1,7 +1,7 @@
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy_dae.integrate import solve_dae, consistent_initial_conditions
+from solve_dae.integrate import solve_dae, consistent_initial_conditions
 
 
 """Index 1 DAE found in Chapter 4 of Brenan1996.

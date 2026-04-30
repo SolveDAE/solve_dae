@@ -6,7 +6,7 @@ py3.install_sources([
     'dae.py',
     'radau.py',
   ],
-  subdir: 'scipy_dae/integrate/_dae'
+  subdir: 'solve_dae/integrate/_dae'
 )
 
 subdir('tests')

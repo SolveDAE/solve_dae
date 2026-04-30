@@ -1,7 +1,7 @@
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy_dae.integrate import solve_dae, consistent_initial_conditions
+from solve_dae.integrate import solve_dae, consistent_initial_conditions
 
 
 """This example shows how to solve a stiff differential algebraic equation (DAE) 

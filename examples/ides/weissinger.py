@@ -1,7 +1,7 @@
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy_dae.integrate import solve_dae
+from solve_dae.integrate import solve_dae
 
 
 """Weissinger's implicit differential equation, see [1] and problem I.543 in [2].

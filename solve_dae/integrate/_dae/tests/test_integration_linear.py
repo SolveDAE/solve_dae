@@ -3,7 +3,7 @@ import numpy as np
 from numpy.testing import assert_, assert_equal
 import pytest
 from scipy.sparse import csc_matrix, identity
-from scipy_dae.integrate import solve_dae
+from solve_dae.integrate import solve_dae
 from scipy.integrate._ivp.tests.test_ivp import fun_linear, jac_linear, sol_linear, compute_error
 
 

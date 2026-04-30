@@ -4,7 +4,7 @@ python_sources = [
 
 py3.install_sources(
   python_sources,
-  subdir: 'scipy_dae'
+  subdir: 'solve_dae'
 )
 
 subdir('integrate')

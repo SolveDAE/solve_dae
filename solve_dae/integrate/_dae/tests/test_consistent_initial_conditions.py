@@ -2,7 +2,7 @@
 import pytest
 from itertools import product
 import numpy as np
-from scipy_dae.integrate import consistent_initial_conditions
+from solve_dae.integrate import consistent_initial_conditions
 
 rtol = 1e-5
 atol = 1e-5

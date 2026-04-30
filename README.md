@@ -1,7 +1,14 @@
-# scipy_dae - solving differential algebraic equations (DAEs) and implicit differential equations (IDEs) in Python
+# solve_dae - solving differential algebraic equations (DAEs) and implicit differential equations (IDEs) in Python
+
+homepage = "https://github.com/SolveDAE/solve_dae"
+documentaton = "https://github.com/SolveDAE/solve_dae"
+source = "https://github.com/SolveDAE/solve_dae"
+download = "https://github.com/SolveDAE/solve_dae/releases"
+tracker = "https://github.com/SolveDAE/solve_dae/issues"
+
 
 <p align="center">
-<a href="https://github.com/JonasBreuling/scipy_dae/actions/workflows/main.yml/badge.svg"><img alt="Actions Status" src="https://github.com/JonasBreuling/scipy_dae/actions/workflows/main.yml/badge.svg"></a>
+<a href="https://github.com/SolveDAE/solve_dae/actions/workflows/main.yml/badge.svg"><img alt="Actions Status" src="https://github.com/SolveDAE/solve_dae/actions/workflows/main.yml/badge.svg"></a>
 <a href="https://codecov.io/gh/JonasBreuling/scipy_dae/branch/main">
 <img src="https://codecov.io/gh/JonasBreuling/scipy_dae/branch/main/graph/badge.svg" alt="Code coverage status badge">
 </a>

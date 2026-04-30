@@ -3,7 +3,7 @@ import numpy as np
 from numpy.testing import assert_, assert_allclose, assert_equal
 import pytest
 from scipy.sparse import identity, csc_matrix
-from scipy_dae.integrate import solve_dae
+from solve_dae.integrate import solve_dae
 
 from scipy.integrate._ivp.tests.test_ivp import fun_rational, fun_rational_vectorized, jac_rational, jac_rational_sparse, sol_rational
 from scipy.integrate._ivp.tests.test_ivp import compute_error

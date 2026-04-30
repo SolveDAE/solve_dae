@@ -1,5 +1,5 @@
 import numpy as np
-from scipy_dae.integrate._dae.benchmarks.common import benchmark
+from solve_dae.integrate._dae.benchmarks.common import benchmark
 
 
 m = 1.25

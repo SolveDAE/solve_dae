@@ -1,5 +1,5 @@
 import numpy as np
-from scipy_dae.integrate._dae.benchmarks.common import benchmark
+from solve_dae.integrate._dae.benchmarks.common import benchmark
 
 
 """Robertson problem of semi-stable chemical reaction, see mathworks and Shampine2005.

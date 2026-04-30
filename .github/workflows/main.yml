@@ -27,14 +27,14 @@ jobs:
         python-version: "3.10" 
         cache: "pip" # caching pip dependencies
 
-    - name: Install dependencies and scipy_dae
+    - name: Install dependencies and solve_dae
       run: pip install .
 
     - name: Install test dependencies
       run: pip install pytest pytest-cov
 
     - name: Test and coverage report with pytest-cov
-      run: pytest --cov=scipy_dae --cov-report=term --cov-report=lcov --cov-report=xml
+      run: pytest --cov=solve_dae --cov-report=term --cov-report=lcov --cov-report=xml
 
     - name: Run tests and collect coverage
       run: pytest --cov app ${{ env.CODECOV_ATS_TESTS }}

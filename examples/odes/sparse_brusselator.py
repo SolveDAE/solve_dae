@@ -2,7 +2,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
-from scipy_dae.integrate import solve_dae
+from solve_dae.integrate import solve_dae
 from scipy.sparse import eye, spdiags
 
 

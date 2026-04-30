@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from scipy_dae.integrate import solve_dae
+from solve_dae.integrate import solve_dae
 
 
 parameters_check_arguments = ["BDF", "Radau"] # method

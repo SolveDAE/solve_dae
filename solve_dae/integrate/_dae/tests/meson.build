@@ -8,6 +8,6 @@ py3.install_sources([
     'test_integration_robertson.py',
     'test_events.py',
   ],
-  subdir: 'scipy_dae/integrate/_dae/tests',
+  subdir: 'solve_dae/integrate/_dae/tests',
   install_tag: 'tests'
 )

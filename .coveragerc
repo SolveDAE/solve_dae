@@ -1,4 +1,4 @@
 [run]
 omit = 
-    scipy_dae/integrate/_dae/benchmarks/*
-    scipy_dae/integrate/_dae/tests/*
+    solve_dae/integrate/_dae/benchmarks/*
+    solve_dae/integrate/_dae/tests/*

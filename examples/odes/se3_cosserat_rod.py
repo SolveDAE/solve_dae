@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Rectangle
-from scipy_dae.integrate import solve_dae, consistent_initial_conditions
+from solve_dae.integrate import solve_dae, consistent_initial_conditions
 
 
 """One planar finite element of the total Lagrangian, objective and 
