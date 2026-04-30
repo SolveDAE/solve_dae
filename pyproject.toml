@@ -4,17 +4,16 @@ requires = ["meson-python>=0.16.0"]
 
 [project]
 name = "solve_dae"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
   { name="Jonas Breuling", email="jonas.breuling@inm.uni-stuttgart.de" },
 ]
-description = "Python implementation of solvers for differential algebraic equations (DAEs) and implicit differential equations (IDEs) that should be added to scipy one day."
+description = "Python implementation of solvers for differential algebraic equations (DAEs) and implicit differential equations (IDEs)."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "numpy==2.2.6",
   "scipy>=1.15.3",
-  "matplotlib>=3.4.3",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -23,8 +22,6 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -41,6 +38,7 @@ classifiers = [
 dev = [
     "pytest",
     "pytest-cov",
+    "matplotlib>=3.4.3",
 ]
 
 [project.urls]

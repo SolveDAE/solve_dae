@@ -273,9 +273,9 @@ Starting at $t_0 = 0.5$, this problem is solved for $atol = rtol = 10^{-(4 + m /
 
 ## Install
 ### Install through pip
-To install scipy-dae package you can run the command
+To install solve-dae package you can run the command
 ```
-pip install scipy-dae
+pip install solve-dae
 ```
 
 ### Install through git repository
