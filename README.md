@@ -27,9 +27,7 @@ More information about both methods are given in the specific class documentatio
 
 The [Kármán vortex street](https://en.wikipedia.org/wiki/K%C3%A1rm%C3%A1n_vortex_street) solved by a finite element discretization of the [weak form of the incompressible Navier-Stokes equations](https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations#Weak_form) using [FEniCS](https://fenicsproject.org/) and the three stage Radau IIA method.
 
-[![Karman](https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/von_Karman.gif)](
-https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/von_Karman.gif
-)
+[![Karman](https://github.com/user-attachments/assets/3f5202f7-7666-4e4a-94dc-26f0759abef7)](https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/von_Karman.gif)
 
 ## Basic usage
 
