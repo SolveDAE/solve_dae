@@ -1,7 +1,7 @@
 # solve_dae - solving differential algebraic equations (DAEs) and implicit differential equations (IDEs) in Python
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/logo.png" alt="drawing" width="500"/>
+  <img src="https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/logo.png" alt="drawing" width="400"/>
 </p>
 
 <p align="center">
