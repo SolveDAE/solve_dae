@@ -1,6 +1,10 @@
 # solve_dae - solving differential algebraic equations (DAEs) and implicit differential equations (IDEs) in Python
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/logo.png" alt="drawing" width="500"/>
+</p>
+
+<p align="center">
 <a href="https://github.com/SolveDAE/solve_dae/actions/workflows/main.yml/badge.svg">
 	<img alt="Actions Status" src="https://github.com/SolveDAE/solve_dae/actions/workflows/main.yml/badge.svg">
 </a>
@@ -10,8 +14,8 @@
 <a href="https://img.shields.io/badge/License-BSD_3--Clause-blue.svg">
 	<img alt="License: BSD 3" src="https://img.shields.io/badge/License-BSD_3--Clause-blue.svg">
 </a>
-<a href="https://pypi.org/project/scipy_dae/">
-	<img alt="PyPI" src="https://img.shields.io/pypi/v/scipy_dae"></a>
+<a href="https://pypi.org/project/solve_dae/">
+	<img alt="PyPI" src="https://img.shields.io/pypi/v/solve_dae"></a>
 </p>
 
 Python implementation of solvers for differential algebraic equations (DAEs) and implicit differential equations (IDEs) that should be added to scipy one day.
