@@ -9,6 +9,7 @@ from scipy.integrate._ivp.ivp import prepare_events, find_active_events
 from .base import DaeSolver
 from .bdf import BDFDAE
 from .radau import RadauDAE
+from .alpha import AlphaDAE
 from scipy.optimize import OptimizeResult
 from .common import DaeSolution, EPS
 
@@ -16,6 +17,7 @@ from .common import DaeSolution, EPS
 METHODS = {
     "BDF": BDFDAE,
     "Radau": RadauDAE,
+    "Alpha": AlphaDAE,
 }
 
 

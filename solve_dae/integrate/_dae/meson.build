@@ -5,6 +5,7 @@ py3.install_sources([
     'common.py',
     'dae.py',
     'radau.py',
+    'alpha.py',
   ],
   subdir: 'solve_dae/integrate/_dae'
 )
