@@ -34,7 +34,7 @@ def test_integration_robertson_ode(method):
         ):
             with suppress_warnings() as sup:
                 sup.filter(UserWarning,
-                        "Choosing `max_order = 6` is not recomended due to its "
+                        "Choosing `max_order = 6` is not recommended due to its "
                         "poor stability properties.")
                 res = solve_dae(F_robertson, tspan, y0, yp0, rtol=rtol,
                                 atol=atol, method=method, max_order=max_order,
@@ -93,7 +93,7 @@ def test_integration_robertson_dae(method):
         ):
             with suppress_warnings() as sup:
                 sup.filter(UserWarning,
-                        "Choosing `max_order = 6` is not recomended due to its "
+                        "Choosing `max_order = 6` is not recommended due to its "
                         "poor stability properties.")
                 res = solve_dae(F_robertson, tspan, y0, yp0, rtol=rtol,
                                 atol=atol, method=method, max_order=max_order,

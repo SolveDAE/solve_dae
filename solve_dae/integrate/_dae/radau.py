@@ -288,7 +288,7 @@ class RadauDAE(DaeSolver):
         bounded and determined solely by the solver.
     rtol, atol : float and array_like, optional
         Relative and absolute tolerances. The solver keeps the local error
-        estimates less than ``atol + rtol * abs(y)``. HHere `rtol` controls a
+        estimates less than ``atol + rtol * abs(y)``. Here `rtol` controls a
         relative accuracy (number of correct digits), while `atol` controls
         absolute accuracy (number of correct decimal places). To achieve the
         desired `rtol`, set `atol` to be smaller than the smallest value that
@@ -413,9 +413,7 @@ class RadauDAE(DaeSolver):
         ) = radau_constants(stages)
 
         self.h_abs_old = None
-        self.h_abs_oldold = None
         self.error_norm_old = None
-        self.error_norm_oldold = None
 
         # modify tolerances as in radau.f line 824ff and 920ff
         # TODO: Document this rescaling
@@ -460,7 +458,6 @@ class RadauDAE(DaeSolver):
         self.current_jac = True
         self.LU_real = None
         self.LU_complex = None
-        self.Z = None
 
     def _step_impl(self):
         t = self.t
@@ -643,7 +640,6 @@ class RadauDAE(DaeSolver):
         self.y = y_new
         self.yp = yp_new
 
-        self.Z = Z
         self.Y = Y
         self.Yp = Yp
 

@@ -180,7 +180,7 @@ class DaeSolver:
         self.nfev = 0
         self.njev = 0
         self.nlu = 0
-        self._nlusove = 0
+        self._nlusolve = 0
 
         if vectorized:
             def fun_single(t, y, yp):
@@ -224,20 +224,17 @@ class DaeSolver:
                 return splu(A)
 
             def solve_lu(LU, b):
-                self._nlusove += 1
+                self._nlusolve += 1
                 return LU.solve(b)
-
-            self.I = eye(self.n, format='csc')
         else:
             def lu(A):
                 self.nlu += 1
                 return lu_factor(A, overwrite_a=True)
 
             def solve_lu(LU, b):
-                self._nlusove += 1
+                self._nlusolve += 1
                 return lu_solve(LU, b, overwrite_b=True)
 
-            self.I = np.identity(self.n)
         self.lu = lu
         self.solve_lu = solve_lu
     
@@ -402,12 +399,7 @@ class DaeSolver:
         if self.t_old is None:
             raise RuntimeError("Dense output is available after a successful "
                                "step was made.")
-
-        if self.n == 0 or self.t == self.t_old:
-            # Handle corner cases of empty solver and no integration.
-            return ConstantDAEDenseOutput(self.t_old, self.t, self.y, self.yp)
-        else:
-            return self._dense_output_impl()
+        return self._dense_output_impl()
 
     def _step_impl(self):
         raise NotImplementedError
@@ -455,25 +447,3 @@ class DAEDenseOutput:
 
     def _call_impl(self, t):
         raise NotImplementedError
-
-
-class ConstantDAEDenseOutput(DAEDenseOutput):
-    """Constant value interpolator.
-
-    This class used for degenerate integration cases: equal integration limits
-    or a system with 0 equations.
-    """
-    def __init__(self, t_old, t, value, derivative):
-        super().__init__(t_old, t)
-        self.value = value
-        self.derivative = derivative
-
-    def _call_impl(self, t):
-        if t.ndim == 0:
-            return self.value, self.derivative
-        else:
-            ret = np.empty((self.value.shape[0], t.shape[0]))
-            ret[:] = self.value[:, None]
-            ret_der = np.empty((self.derivative.shape[0], t.shape[0]))
-            ret_der[:] = self.derivative[:, None]
-            return ret, ret_der

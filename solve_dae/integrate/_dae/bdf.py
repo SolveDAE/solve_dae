@@ -104,7 +104,7 @@ class BDFDAE(DaeSolver):
     max_order : int, optional
         Highest order of the method with 1 <= max_order <= 6, although 
         max_order = 6 should be used with care due to the limited stability 
-        propoerties of the corresponding BDF method.
+        properties of the corresponding BDF method.
     NDF_strategy : string, optional
         The strategy that is applied for obtaining numerical differentiation 
         formulas (NDF):
@@ -235,7 +235,7 @@ class BDFDAE(DaeSolver):
 
         assert 1 <= max_order <= 6, "Ensure that 1 <= max_order <= 6."
         if max_order == 6:
-            warn("Choosing `max_order = 6` is not recomended due to its poor stability properties.",
+            warn("Choosing `max_order = 6` is not recommended due to its poor stability properties.",
                  stacklevel=3)
         self.max_order = max_order
 
@@ -565,3 +565,58 @@ class BdfDenseOutput(DAEDenseOutput):
         #     yp3 = np.squeeze(yp3)
 
         # return y3, yp3
+
+
+# class BdfDenseOutput(DAEDenseOutput):
+#     """Newton backward-difference interpolant for the BDF solution.
+
+#     Both y(t) and yp(t) are evaluated in a single O(order) Horner pass
+#     using dual-number differentiation.
+
+#     The interpolant P(t) satisfies P(t_n - j·h) = y_{n-j} for j = 0..order-1.
+#     P'(t) is the analytical time-derivative of P.
+#     """
+
+#     def __init__(self, t_old, t, h, order, D):
+#         super().__init__(t_old, t)
+#         self.order = order
+#         self.h = h          # signed step size: h = direction * h_abs
+#         self.t_n = t        # current time = right end of the interpolation window
+#         self.D = D          # shape (order+1, n): divided differences
+
+#     def _call_impl(self, t):
+#         """Evaluate (y(t), yp(t)) using Horner's rule with dual-number derivative.
+
+#         The Newton form of P(t) is:
+#             P = D[0] + x_1*(D[1] + x_2*(D[2] + ... + x_q*D[q]))
+#         where x_j = (t - (t_n - (j-1)*h)) / (j*h).
+
+#         Carrying dual variables (v, dv/dt) through the Horner recurrence gives
+#         both P(t) and P'(t) in a single O(order) pass — no second traversal needed.
+#         """
+#         scalar = t.ndim == 0
+#         t = np.atleast_1d(t)           # (n_pts,)
+#         n_pts = len(t)
+#         n     = self.D.shape[1]        # state dimension
+
+#         # Initialise with the innermost term D[order] (constant in t)
+#         # v : (n, n_pts) — running polynomial value
+#         # dv: (n, n_pts) — running derivative d/dt of v
+#         v  = np.tile(self.D[self.order, :, None], (1, n_pts))   # (n, n_pts)
+#         dv = np.zeros_like(v)
+
+#         for j in range(self.order, 0, -1):
+#             # Node for this Horner step
+#             node = self.t_n - (j - 1) * self.h   # scalar
+#             x_j  = (t - node) / (j * self.h)     # (n_pts,)
+#             dx_j = 1.0 / (j * self.h)            # scalar (same for all pts)
+
+#             # Dual-number multiply: new = D[j-1] + x_j * v
+#             # d(new)/dt = dx_j * v + x_j * dv
+#             new_v  = self.D[j - 1, :, None] + x_j[None, :] * v
+#             new_dv = dx_j * v + x_j[None, :] * dv
+#             v, dv = new_v, new_dv
+
+#         if scalar:
+#             return np.squeeze(v), np.squeeze(dv)
+#         return v, dv
