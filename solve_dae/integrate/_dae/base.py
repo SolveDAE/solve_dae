@@ -348,13 +348,6 @@ class DaeSolver:
 
         return jac_wrapped, Jy, Jyp
 
-    @property
-    def step_size(self):
-        if self.t_old is None:
-            return None
-        else:
-            return np.abs(self.t - self.t_old)
-
     def step(self):
         """Perform one integration step.
 
@@ -369,22 +362,22 @@ class DaeSolver:
             raise RuntimeError("Attempt to step on a failed or finished "
                                "solver.")
 
-        if self.n == 0 or self.t == self.t_bound:
-            # Handle corner cases of empty solver or no integration.
-            self.t_old = self.t
-            self.t = self.t_bound
-            message = None
-            self.status = 'finished'
-        else:
-            t = self.t
-            success, message = self._step_impl()
+        # if self.n == 0 or self.t == self.t_bound:
+        #     # Handle corner cases of empty solver or no integration.
+        #     self.t_old = self.t
+        #     self.t = self.t_bound
+        #     message = None
+        #     self.status = 'finished'
+        # else:
+        t = self.t
+        success, message = self._step_impl()
 
-            if not success:
-                self.status = 'failed'
-            else:
-                self.t_old = t
-                if self.direction * (self.t - self.t_bound) >= 0:
-                    self.status = 'finished'
+        if not success:
+            self.status = 'failed'
+        else:
+            self.t_old = t
+            if self.direction * (self.t - self.t_bound) >= 0:
+                self.status = 'finished'
 
         return message
 
