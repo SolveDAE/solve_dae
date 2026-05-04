@@ -8,7 +8,7 @@ from scipy.integrate._ivp.common import (
 )
 from scipy.optimize._numdiff import approx_derivative
 from scipy.linalg import lu_factor, lu_solve
-from scipy.sparse import csc_matrix, issparse, eye
+from scipy.sparse import csc_matrix, issparse
 from scipy.sparse.linalg import splu
 from .common import select_initial_step
 
@@ -359,8 +359,7 @@ class DaeSolver:
             otherwise.
         """
         if self.status != 'running':
-            raise RuntimeError("Attempt to step on a failed or finished "
-                               "solver.")
+            raise RuntimeError("Attempt to step on a failed or finished solver.")
 
         # if self.n == 0 or self.t == self.t_bound:
         #     # Handle corner cases of empty solver or no integration.
@@ -390,15 +389,14 @@ class DaeSolver:
             Local interpolant over the last successful step.
         """
         if self.t_old is None:
-            raise RuntimeError("Dense output is available after a successful "
-                               "step was made.")
+            raise RuntimeError("Dense output is available after a successful step was made.")
         return self._dense_output_impl()
 
-    def _step_impl(self):
-        raise NotImplementedError
+    # def _step_impl(self):
+    #     raise NotImplementedError
 
-    def _dense_output_impl(self):
-        raise NotImplementedError
+    # def _dense_output_impl(self):
+    #     raise NotImplementedError
 
 
 class DAEDenseOutput:
@@ -438,5 +436,5 @@ class DAEDenseOutput:
             raise ValueError("`t` must be a float or a 1-D array.")
         return self._call_impl(t)
 
-    def _call_impl(self, t):
-        raise NotImplementedError
+    # def _call_impl(self, t):
+    #     raise NotImplementedError
