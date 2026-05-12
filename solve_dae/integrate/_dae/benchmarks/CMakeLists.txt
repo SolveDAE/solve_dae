@@ -26,6 +26,6 @@ add_executable(arevalo arevalo/arevalo.c)
 target_link_libraries(arevalo PRIVATE ${SUNDIALS_LIB})
 
 # - IDE
-add_executable(arevalo weissinger/weissinger.c)
+add_executable(weissinger weissinger/weissinger.c)
 target_link_libraries(weissinger PRIVATE ${SUNDIALS_LIB})
 

@@ -84,6 +84,7 @@ def radau_constants(s):
     TI = np.linalg.inv(T)
 
     # sanity checks
+    # TODO: Move these checks to tests
     assert np.allclose(Q @ np.diag(lambdas) @ np.linalg.inv(Q), A)
     assert np.allclose(np.linalg.inv(Q) @ A @ Q, np.diag(lambdas))
     assert np.allclose(T @ Gammas @ TI, A)
@@ -141,7 +142,7 @@ def solve_collocation_system(fun, t, y, h, Yp0, scale, tol,
     ncs = s // 2
     tau = t + h * C
 
-    Yp = Yp0
+    Yp = Yp0.copy()
     Y = y + h * A.dot(Yp)
 
     F = np.empty((s, n))
@@ -274,8 +275,11 @@ class RadauDAE(DaeSolver):
         Boundary time - the integration won't continue beyond it. It also
         determines the direction of the integration.
     stages : int, optional
-        Number of used stages. Default is 3, which corresponds to the 
-        ``solve_ivp`` method. Only odd number of stages are allowed.
+        Number of stages (must be a positive odd integer). Default is 3,
+        giving a method of order 5, which matches the Radau IIA method in
+        ``scipy.integrate.solve_ivp``. Increasing ``stages`` raises the order
+        to ``2*stages - 1`` at the cost of solving a larger collocation system
+        per step.
     first_step : float or None, optional
         Initial step size. Default is ``None`` which means that the algorithm
         should choose.
@@ -305,22 +309,32 @@ class RadauDAE(DaeSolver):
         [5]_ and [6]_. The embedded error is weighted by (1 - continuous_error_weight). 
         Has to satisfy 0 <= continuous_error_weight <= 1. Default is 0.0, i.e., only 
         the embedded error is considered.
-    jac : {None, array_like, sparse_matrix, callable}, optional
-        Jacobian matrix of the right-hand side of the system with respect to
-        y, required by this method. The Jacobian matrix has shape (n, n) and
-        its element (i, j) is equal to ``d f_i / d y_j``.
-        There are three ways to define the Jacobian:
+    jac : (array_like, array_like), (sparse_matrix, sparse_matrix), callable or None, optional
+        Jacobian matrices of the right-hand side. If None (default), the
+        Jacobians are approximated by finite differences. Providing the
+        Jacobians analytically is strongly recommended for stiff problems
+        and will significantly reduce the number of function evaluations.
+        Jacobian matrices of the right-hand side of the system with respect
+        to y and y'. If None (default), the Jacobians are approximated by 
+        finite differences. Providing the Jacobians analytically is strongly 
+        recommended for stiff problems and will significantly reduce the 
+        number of function evaluations. The Jacobian matrices have shape 
+        (n, n) and their elements (i, j) are equal to ``d f_i / d y_j`` 
+        and ``d f_i / d y_j'``, respectively. There are three ways to define 
+        the Jacobian:
 
-            * If array_like or sparse_matrix, the Jacobian is assumed to
-              be constant.
-            * If callable, the Jacobian is assumed to depend on both
-              t and y; it will be called as ``jac(t, y)`` as necessary.
-              For the 'Radau' and 'BDF' methods, the return value might be a
-              sparse matrix.
-            * If None (default), the Jacobian will be approximated by
+            * If (array_like, array_like) or (sparse_matrix, sparse_matrix) 
+              the Jacobian matrices are assumed to be constant.
+            * If callable, the Jacobians are assumed to depend on both
+              t, y and y'; it will be called as ``jac(t, y, y')``, as necessary.
+              Additional arguments have to be passed if ``args`` is
+              used (see documentation of ``args`` argument).
+              For 'Radau' and 'BDF' methods, the return value might be a
+              tuple of sparse matrices.
+            * If None (default), the Jacobians will be approximated by
               finite differences.
 
-        It is generally recommended to provide the Jacobian rather than
+        It is generally recommended to provide the Jacobians rather than
         relying on a finite-difference approximation.
     jac_sparsity : {None, array_like, sparse matrix}, optional
         Defines a sparsity structure of the Jacobian matrix for a
@@ -418,21 +432,10 @@ class RadauDAE(DaeSolver):
         # modify tolerances as in radau.f line 824ff and 920ff
         # TODO: Document this rescaling
         EXPMNS = (stages + 1) / (2 * stages)
-        # print(f"atol: {atol}")
-        # print(f"rtol: {rtol}")
-        # rtol = 0.1 * rtol ** EXPMNS
-        # quott = atol / rtol
-        # atol = rtol * quott
-        # print(f"atol: {atol}")
-        # print(f"rtol: {rtol}")
 
         # newton tolerance as in radau.f line 1008ff
         EXPMI = 1 / EXPMNS
         self.newton_tol = max(10 * EPS / rtol, min(0.03, rtol ** (EXPMI - 1)))
-        # print(f"newton_tol: {self.newton_tol}")
-        # print(f"10 * EPS / rtol: {10 * EPS / rtol}")
-        # print(f"0.03")
-        # print(f"rtol ** (EXPMI - 1): {rtol ** (EXPMI - 1)}")
 
         # maximum number of newton terations as in radaup.f line 234
         if newton_max_iter is None:

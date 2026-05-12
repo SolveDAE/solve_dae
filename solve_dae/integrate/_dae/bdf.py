@@ -134,21 +134,29 @@ class BDFDAE(DaeSolver):
         passing array_like with shape (n,) for `atol`. Default values are
         1e-3 for `rtol` and 1e-6 for `atol`.
     jac : (array_like, array_like), (sparse_matrix, sparse_matrix), callable or None, optional
+        Jacobian matrices of the right-hand side. If None (default), the
+        Jacobians are approximated by finite differences. Providing the
+        Jacobians analytically is strongly recommended for stiff problems
+        and will significantly reduce the number of function evaluations.
         Jacobian matrices of the right-hand side of the system with respect
-        to y and y'. The Jacobian matrices have shape (n, n) and their 
-        elements (i, j) are equal to ``d f_i / d y_j`` and 
-        ``d f_i / d y_j'``, respectively.  There are three ways to define 
+        to y and y'. If None (default), the Jacobians are approximated by 
+        finite differences. Providing the Jacobians analytically is strongly 
+        recommended for stiff problems and will significantly reduce the 
+        number of function evaluations. The Jacobian matrices have shape 
+        (n, n) and their elements (i, j) are equal to ``d f_i / d y_j`` 
+        and ``d f_i / d y_j'``, respectively. There are three ways to define 
         the Jacobian:
 
             * If (array_like, array_like) or (sparse_matrix, sparse_matrix) 
               the Jacobian matrices are assumed to be constant.
-            * If callable, the Jacobians are assumed to depend on t, y and y'; 
-              it will be called as ``jac(t, y, y')``, as necessary. Additional 
-              arguments have to be passed if ``args`` is used (see 
-              documentation of ``args`` argument). The return values might be 
-              a tuple of sparse matrices.
-            * If None (default), the Jacobians will be approximated by finite 
-              differences.
+            * If callable, the Jacobians are assumed to depend on both
+              t, y and y'; it will be called as ``jac(t, y, y')``, as necessary.
+              Additional arguments have to be passed if ``args`` is
+              used (see documentation of ``args`` argument).
+              For 'Radau' and 'BDF' methods, the return value might be a
+              tuple of sparse matrices.
+            * If None (default), the Jacobians will be approximated by
+              finite differences.
 
         It is generally recommended to provide the Jacobians rather than
         relying on a finite-difference approximation.

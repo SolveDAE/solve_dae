@@ -99,7 +99,7 @@ def run_knife_edge():
     # reference solution
     y_ref = sol_true(t1)[0]
 
-    benchmark(t0, t1, vy0, vyp0, F, rtols, atols, h0s, "knife_edge", y_ref)
+    benchmark(t0, t1, vy0, vyp0, F, rtols, atols, h0s, "Knife edge", y_ref)
 
 
 if __name__ == "__main__":

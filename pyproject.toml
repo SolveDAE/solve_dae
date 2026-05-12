@@ -12,8 +12,8 @@ description = "Python implementation of solvers for differential algebraic equat
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-  "numpy==2.2.6",
-  "scipy>=1.15.3",
+  "numpy>=2.0,<3",
+  "scipy>=1.15.3", # uses scipy.integrate._ivp private API — must be kept in sync
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -40,6 +40,7 @@ dev = [
     "pytest-cov",
     "matplotlib>=3.4.3",
 ]
+examples = ["matplotlib>=3.4.3"]
 
 [project.urls]
 homepage = "https://github.com/SolveDAE/solve_dae"

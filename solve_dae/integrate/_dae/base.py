@@ -238,6 +238,15 @@ class DaeSolver:
         self.lu = lu
         self.solve_lu = solve_lu
     
+    def __repr__(self):
+        return (
+            f"{type(self).__name__}("
+            f"t={self.t:.4g}, "
+            f"h={getattr(self, 'h_abs', float('nan')):.2e}, "
+            f"status={self.status!r}, "
+            f"nfev={self.nfev}, njev={self.njev}, nlu={self.nlu})"
+        )
+  
     def _validate_jac(self, jac, sparsity):
         t0 = self.t
         y0 = self.y

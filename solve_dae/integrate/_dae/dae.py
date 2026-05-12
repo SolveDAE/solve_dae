@@ -257,11 +257,18 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
         passing array_like with shape (n,) for `atol`. Default values are
         1e-3 for `rtol` and 1e-6 for `atol`.
     jac : (array_like, array_like), (sparse_matrix, sparse_matrix), callable or None, optional
+        Jacobian matrices of the right-hand side. If None (default), the
+        Jacobians are approximated by finite differences. Providing the
+        Jacobians analytically is strongly recommended for stiff problems
+        and will significantly reduce the number of function evaluations.
         Jacobian matrices of the right-hand side of the system with respect
-        to y and y', required by the 'Radau' and 'BDF' method. The
-        Jacobian matrices have shape (n, n) and their elements (i, j) are equal to
-        ``d f_i / d y_j`` and ``d f_i / d y_j'``, respectively.  There are 
-        three ways to define the Jacobian:
+        to y and y'. If None (default), the Jacobians are approximated by 
+        finite differences. Providing the Jacobians analytically is strongly 
+        recommended for stiff problems and will significantly reduce the 
+        number of function evaluations. The Jacobian matrices have shape 
+        (n, n) and their elements (i, j) are equal to ``d f_i / d y_j`` 
+        and ``d f_i / d y_j'``, respectively. There are three ways to define 
+        the Jacobian:
 
             * If (array_like, array_like) or (sparse_matrix, sparse_matrix) 
               the Jacobian matrices are assumed to be constant.
@@ -302,6 +309,9 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
         that type event was detected. None if `events` was None.
     y_events : list of ndarray or None
         For each value of `t_events`, the corresponding value of the solution.
+        None if `events` was None.
+    yp_events : list of ndarray or None
+        For each value of `t_events`, the corresponding value of the derivative.
         None if `events` was None.
     nfev : int
         Number of evaluations of the right-hand side.
