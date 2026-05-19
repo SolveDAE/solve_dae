@@ -409,7 +409,8 @@ class RadauDAE(DaeSolver):
                  continuous_error_weight=0.0, jac=None, 
                  jac_sparsity=None, vectorized=False, 
                  first_step=None, newton_max_iter=None,
-                 jac_recompute_rate=1e-3, newton_iter_embedded=1,
+                 jac_recompute_rate=1e-3, jac_recompute_iter=2,
+                 newton_iter_embedded=1,
                  controller_deadband=(1.0, 1.2),
                  **extraneous):
         warn_extraneous(extraneous)
@@ -451,6 +452,9 @@ class RadauDAE(DaeSolver):
 
         assert 0 < jac_recompute_rate < 1
         self.jac_recompute_rate = jac_recompute_rate
+
+        assert 0 < jac_recompute_iter
+        self.jac_recompute_iter = jac_recompute_iter
 
         assert 0 < controller_deadband[0] <= controller_deadband[1]
         self.controller_deadband = controller_deadband
@@ -607,7 +611,7 @@ class RadauDAE(DaeSolver):
         # Step is converged and accepted
         recompute_jac = (
             jac is not None 
-            and n_iter > 2 
+            and n_iter > self.jac_recompute_iter 
             and rate > self.jac_recompute_rate
         )
 

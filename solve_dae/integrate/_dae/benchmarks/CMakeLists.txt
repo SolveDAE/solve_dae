@@ -25,6 +25,10 @@ target_link_libraries(knife_edge PRIVATE ${SUNDIALS_LIB})
 add_executable(arevalo arevalo/arevalo.c)
 target_link_libraries(arevalo PRIVATE ${SUNDIALS_LIB})
 
+# - index 3 DAE
+add_executable(particle particle/particle.c)
+target_link_libraries(particle PRIVATE ${SUNDIALS_LIB})
+
 # - IDE
 add_executable(weissinger weissinger/weissinger.c)
 target_link_libraries(weissinger PRIVATE ${SUNDIALS_LIB})

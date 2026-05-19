@@ -8,18 +8,18 @@ solvers = [
     ("Radau", {"stages": 3}),
     ("Radau", {"stages": 5}),
     ("Radau", {"stages": 7}),
-    ("BDF", {"NDF_strategy": "stability"}),
-    ("BDF", {"NDF_strategy": "accuracy"}),
-    ("BDF", {"NDF_strategy": None}),
+    # ("BDF", {"NDF_strategy": "stability"}),
+    # ("BDF", {"NDF_strategy": "accuracy"}),
+    # ("BDF", {"NDF_strategy": None}),
 ]
 
 
-def benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, name, y_ref=None, y_idx=None):
+def benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, name, y_ref=None, yp_ref=None, y_idx=None):
     # time span
     t_span = (t0, t1)
 
     # benchmark results
-    results = np.zeros((len(solvers), len(rtols), 2))
+    results = np.zeros((len(solvers), len(rtols), 3))
 
     if y_ref is None:
         sol = solve_dae(
@@ -33,6 +33,7 @@ def benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, name, y_ref=None, y_idx=Non
             stages=5,
         )
         y_ref = sol.y[:, -1]
+        yp_ref = sol.yp[:, -1]
         print(sol)
         assert sol.success
 
@@ -64,13 +65,17 @@ def benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, name, y_ref=None, y_idx=Non
 
             # error
             if y_idx is not None:
-                diff = y_ref[y_idx] - sol.y[y_idx, -1]
+                diff_y = y_ref[y_idx] - sol.y[y_idx, -1]
+                diff_yp = yp_ref[y_idx] - sol.yp[y_idx, -1]
             else:
-                diff = y_ref - sol.y[:, -1]
-            error = np.linalg.norm(diff)
-            print(f"     => error: {error}")
+                diff_y = y_ref - sol.y[:, -1]
+                diff_yp = yp_ref - sol.yp[:, -1]
+            error_y = np.linalg.norm(diff_y)
+            print(f"     => error_y: {error_y}")
+            error_yp = np.linalg.norm(diff_yp)
+            print(f"     => error_yp: {error_yp}")
 
-            results[i, j] = (error, elapsed_time)
+            results[i, j] = (elapsed_time, error_y, error_y)
 
     fig, ax = plt.subplots(figsize=(12, 9))
 
@@ -93,10 +98,26 @@ def benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, name, y_ref=None, y_idx=Non
         result_IDA = np.loadtxt("solve_dae/integrate/_dae/benchmarks/arevalo/arevalo_errors_IDA.csv", delimiter=',')
         result_IDA[:, 1] *= 100 # scale elapsed time by 100
         ax.plot(*result_IDA.T, label="sundials IDA (elapsed time *= 100)")
+    elif name == "Particle":
+        result_IDA = np.loadtxt("solve_dae/integrate/_dae/benchmarks/particle/particle_errors_IDA.csv", delimiter=',')
+        result_IDA[:, 1] *= 100 # scale elapsed time by 100
+        ax.plot(*result_IDA[: :2].T, label="sundials IDA (elapsed time *= 100)")
     elif name == "Weissinger":
         result_IDA = np.loadtxt("solve_dae/integrate/_dae/benchmarks/weissinger/weissinger_errors_IDA.csv", delimiter=',')
         result_IDA[:, 1] *= 500 # scale elapsed time by 500
         ax.plot(*result_IDA.T, label="sundials IDA (elapsed time *= 500)")
+
+    # export errors and elapsed time
+    for i, ri in enumerate(results):
+        np.savetxt(
+            f"{name}_{solvers[i]}.txt",
+            ri,
+            delimiter=", ",
+            header="t, error_y, error_yp",
+            comments="",
+        )
+
+        # ax.plot(ri[:, 0], ri[:, 1], label=solvers[i])
 
     ax.set_title(f"work-precision: {name}")
     ax.set_xscale("log")
