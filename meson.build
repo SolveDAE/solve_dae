@@ -1,6 +1,6 @@
 project(
   'solve_dae', 
-  version: '0.2.1',
+  version: '0.2.3',
   meson_version: '>= 1.1.0',
 )
 
