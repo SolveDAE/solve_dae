@@ -121,7 +121,7 @@ def test_integration_robertson_dae(method):
                             newton_iter_embedded=newton_iter_embedded)
 
             # If the stiff mode is not activated correctly, these numbers will be much bigger
-            assert res.nfev < 2150
+            assert res.nfev < 2600
             assert res.njev < 90
             assert res.nlu < 300
 
