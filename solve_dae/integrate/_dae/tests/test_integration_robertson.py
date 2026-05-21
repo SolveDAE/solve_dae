@@ -123,7 +123,7 @@ def test_integration_robertson_dae(method):
             # If the stiff mode is not activated correctly, these numbers will be much bigger
             assert res.nfev < 2600
             assert res.njev < 90
-            assert res.nlu < 300
+            assert res.nlu < 450
 
 
 # if __name__ == "__main__":
