@@ -30,7 +30,7 @@ class DaeResult(OptimizeResult):
 def solve_event_equation(event, sol, t_old, t):
     """Solve an equation corresponding to an ODE event.
 
-    The equation is ``event(t, y(t), y#(t)) = 0``, here ``y(t)`` and ``y'(t)`` 
+    The equation is ``event(t, y(t), y'(t)) = 0``, here ``y(t)`` and ``y'(t)``
     are known from an DAE solver using some sort of interpolation. It is solved by
     `scipy.optimize.brentq` with xtol=atol=4*EPS.
 
@@ -112,52 +112,52 @@ def handle_events(sol, events, active_events, event_count, max_events,
 # TODO:
 # - add number of solve LGS's as done by matlab.
 # - add var_index in error estimate
-def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None, 
+def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
               dense_output=False, events=None, var_index=None,
               vectorized=False, args=None, **options):
-    """Solve an initial value problem for a system of differential algebraic 
+    """Solve an initial value problem for a system of differential algebraic
     equations (DAEs).
 
-    This function numerically integrates a system of implicit ordinary 
+    This function numerically integrates a system of implicit ordinary
     differential equations given an initial value::
 
         f(t, y, y') = 0
         y(t0) = y0
         y'(t0) = yp0
 
-    Here t is a 1-D independent variable (time), y(t) is an N-D vector-valued 
-    function (state), y'(t) is an N-D vector-valued function (state 
-    derivative) and an N-D vector-valued function f(t, y, y') determines the 
+    Here t is a 1-D independent variable (time), y(t) is an N-D vector-valued
+    function (state), y'(t) is an N-D vector-valued function (state
+    derivative) and an N-D vector-valued function f(t, y, y') determines the
     implicit differential algebraic equations.
     The goal is to find y(t) and y'(t) approximately satisfying the differential
     algebraic equations, given initial values y(t0)=y0 and y'(t0)=yp0.
 
     Some of the solvers support integration in the complex domain, but note
-    that the function f must be complex-differentiable (satisfy Cauchy-Riemann 
+    that the function f must be complex-differentiable (satisfy Cauchy-Riemann
     equations [11]_).
-    To solve a problem in the complex domain, pass y0 or yp0 with a complex 
-    data type. Another option always available is to rewrite your problem for 
+    To solve a problem in the complex domain, pass y0 or yp0 with a complex
+    data type. Another option always available is to rewrite your problem for
     real and imaginary parts separately.
 
     Parameters
     ----------
     fun : callable
-        Function defining the DAE system: ``f(t, y, y_dot) = 0``. The calling 
-        signature is ``fun(t, y, y_dot)``, where ``t`` is a scalar and 
-        ``y, y_dot`` are ndarrays with 
-        ``len(y) = len(y_dot) = len(y0) = len(yp0)``. Additional 
+        Function defining the DAE system: ``f(t, y, y_dot) = 0``. The calling
+        signature is ``fun(t, y, y_dot)``, where ``t`` is a scalar and
+        ``y, y_dot`` are ndarrays with
+        ``len(y) = len(y_dot) = len(y0) = len(yp0)``. Additional
         arguments need to be passed if ``args`` is used (see documentation of
         ``args`` argument). ``fun`` must return an array of the same shape as
         ``y`` and ``y_dot``. See `vectorized` for more information.
     t_span : 2-member sequence
         Interval of integration (t0, t_bound). The solver starts with t=t0 and
-        integrates until it reaches t=t_bound. Both t0 and t_bound must be 
+        integrates until it reaches t=t_bound. Both t0 and t_bound must be
         floats or values interpretable by the float conversion function.
     y0 : array_like, shape (n,)
         Initial state. For problems in the complex domain, pass `y0` with a
         complex data type (even if the initial value is purely real).
     yp0 : array_like, shape (n,)
-        Initial derivative. For problems in the complex domain, pass `yp0` 
+        Initial derivative. For problems in the complex domain, pass `yp0`
         with a complex data type (even if the initial value is purely real).
     method : string or `DaeSolver`, optional
         Integration method to use:
@@ -207,8 +207,8 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
         You can assign attributes like ``event.terminal = True`` to any
         function in Python.
     var_index : array_like, shape (n,), optional
-        Differentiation index of the respective row of f(t, y, y') = 0. 
-        Depending on this index, the error estimates are scaled by the 
+        Differentiation index of the respective row of f(t, y, y') = 0.
+        Depending on this index, the error estimates are scaled by the
         stepsize h**(index - 1) in order to ensure convergence.
         Default is None, which means all equations are differential equations.
     vectorized : bool, optional
@@ -262,15 +262,15 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
         Jacobians analytically is strongly recommended for stiff problems
         and will significantly reduce the number of function evaluations.
         Jacobian matrices of the right-hand side of the system with respect
-        to y and y'. If None (default), the Jacobians are approximated by 
-        finite differences. Providing the Jacobians analytically is strongly 
-        recommended for stiff problems and will significantly reduce the 
-        number of function evaluations. The Jacobian matrices have shape 
-        (n, n) and their elements (i, j) are equal to ``d f_i / d y_j`` 
-        and ``d f_i / d y_j'``, respectively. There are three ways to define 
+        to y and y'. If None (default), the Jacobians are approximated by
+        finite differences. Providing the Jacobians analytically is strongly
+        recommended for stiff problems and will significantly reduce the
+        number of function evaluations. The Jacobian matrices have shape
+        (n, n) and their elements (i, j) are equal to ``d f_i / d y_j``
+        and ``d f_i / d y_j'``, respectively. There are three ways to define
         the Jacobian:
 
-            * If (array_like, array_like) or (sparse_matrix, sparse_matrix) 
+            * If (array_like, array_like) or (sparse_matrix, sparse_matrix)
               the Jacobian matrices are assumed to be constant.
             * If callable, the Jacobians are assumed to depend on both
               t, y and y'; it will be called as ``jac(t, y, y')``, as necessary.
@@ -365,7 +365,7 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
     """
     if var_index is not None:
         raise NotImplementedError("This feature is not implemented yet.")
-    
+
     if method not in METHODS and not (
             inspect.isclass(method) and issubclass(method, DaeSolver)):
         raise ValueError(f"`method` must be one of {METHODS} or DaeSolver class.")
@@ -543,7 +543,7 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
         ts = np.hstack(ts)
         ys = np.hstack(ys)
         yps = np.hstack(yps)
-        
+
     if dense_output:
         if t_eval is None:
             sol = DaeSolution(ts, interpolants)
@@ -553,5 +553,5 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
         sol = None
 
     return DaeResult(t=ts, y=ys, yp=yps, sol=sol, t_events=t_events, y_events=y_events,
-                     yp_events=yp_events, nfev=solver.nfev, njev=solver.njev, 
+                     yp_events=yp_events, nfev=solver.nfev, njev=solver.njev,
                      nlu=solver.nlu, status=status, message=message, success=status>=0)
