@@ -4,7 +4,7 @@ from solve_dae.integrate import solve_dae
 
 
 parameters_check_arguments = ["BDF", "Radau"] # method
-@pytest.mark.parametrize("method,", parameters_check_arguments)
+@pytest.mark.parametrize("method", parameters_check_arguments)
 def test_check_arguments(method):
     F = lambda t, y, yp: yp + 0.5 * y
 
