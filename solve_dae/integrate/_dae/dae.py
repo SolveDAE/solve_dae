@@ -30,7 +30,7 @@ class DaeResult(OptimizeResult):
 def solve_event_equation(event, sol, t_old, t):
     """Solve an equation corresponding to an ODE event.
 
-    The equation is ``event(t, y(t), y#(t)) = 0``, here ``y(t)`` and ``y'(t)`` 
+    The equation is ``event(t, y(t), y'(t)) = 0``, here ``y(t)`` and ``y'(t)`` 
     are known from an DAE solver using some sort of interpolation. It is solved by
     `scipy.optimize.brentq` with xtol=atol=4*EPS.
 
