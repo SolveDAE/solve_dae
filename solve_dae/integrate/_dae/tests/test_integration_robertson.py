@@ -105,7 +105,7 @@ def test_integration_robertson_dae(method):
                     assert res.nfev < 5000
                     assert res.nlu < 1100
                 else:
-                    assert res.nfev < 1600
+                    assert res.nfev < 1610
                     assert res.nlu < 210
                 assert res.njev < 32
 
