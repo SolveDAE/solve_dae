@@ -10,6 +10,7 @@ py3.install_sources([
     'test_events.py',
     'test_radau_constants.py',
     'test_solve_dae_options.py',
+    'test_bdf_dense_output.py',
   ],
   subdir: 'solve_dae/integrate/_dae/tests',
   install_tag: 'tests'

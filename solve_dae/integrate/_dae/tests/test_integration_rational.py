@@ -86,10 +86,14 @@ def test_integration_rational(first_step, vectorized, method, t_span, jac, jac_s
     e = compute_error(yc, yc_true, rtol, atol)
     assert_(np.all(e < 6))
 
-    # BDF's dense-output derivative is markedly less accurate than its
-    # value interpolant (see roadmap: BdfDenseOutput uses a naive O(order^2)
-    # direct evaluation; more accurate variants exist but are unwired), so
-    # it needs a looser bound here than Radau's collocation-based yp output.
+    # BDF's dense-output derivative is markedly less accurate than its value
+    # interpolant. This is structural, not an implementation defect: BdfDenseOutput
+    # differentiates a y-only Newton interpolant, and differentiating a degree-q
+    # interpolant that approximates y to O(h**(q+1)) generically only approximates
+    # y' to O(h**q) -- one order is always lost (see BdfDenseOutput's docstring
+    # and test_bdf_dense_output.py::test_yp_loses_one_order_of_accuracy_relative_to_y).
+    # Radau's yp is more accurate because its collocation polynomial is built from
+    # the stage derivatives directly, not by differentiating a y-only fit.
     e = compute_error(ypc, ypc_true, rtol, atol)
     assert_(np.all(e < (60 if method == "BDF" else 6)))
 

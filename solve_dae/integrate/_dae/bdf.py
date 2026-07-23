@@ -1,5 +1,4 @@
 import numpy as np
-from math import factorial
 from warnings import warn
 from scipy.integrate._ivp.common import norm, EPS, warn_extraneous
 from .base import DAEDenseOutput
@@ -405,12 +404,6 @@ class BDFDAE(DaeSolver):
 
         # choose order with largest factor
         delta_order = np.argmax(factors) - 1
-
-        # choose order with smallest error
-        # TODO: This choice is advertised in Shampine2002 but experiments 
-        # indicate it is not worth it
-        # delta_order = np.argmin(error_norms) - 1
-
         order += delta_order
         self.order = order
 
@@ -428,203 +421,85 @@ class BDFDAE(DaeSolver):
 
 
 class BdfDenseOutput(DAEDenseOutput):
+    """Newton backward-difference interpolant for the BDF solution.
+
+    `D[0], ..., D[order]` are the backward differences of `y` at the last
+    `order + 1` accepted grid points, assumed equally spaced by `h` (which
+    holds because `change_D`/`compute_R` rescale `D` whenever the step size
+    changes, see `BDFDAE._step_impl`). The interpolating polynomial through
+    these points, expressed in the variable ``s = (t - t) / h`` (`t` here is
+    the *right* end of the window, i.e. the newest point), is the classical
+    Newton (Gregory-Newton) backward-difference formula
+
+        P(t_old + s*h) = sum_{j=0}^{order} C(s + j - 1, j) * D[j]
+
+    where ``C(s + j - 1, j) = s*(s+1)*...*(s+j-1) / j!`` is the generalized
+    binomial coefficient. This is the same divided-difference/history-array
+    representation used by the classical BDF codes this method descends
+    from (LSODE/VODE, see [1]_ in `BDFDAE`, and SUNDIALS IDA's `IDAGetDky`,
+    which evaluates its own Nordsieck history array the same way).
+
+    Rather than expanding the products in `s` directly (which needs care to
+    avoid recomputing overlapping partial products, and to differentiate
+    the result), the sum above is evaluated through its equivalent *nested*
+    (Horner-type) form
+
+        P = D[0] + x_1*(D[1] + x_2*(D[2] + ... + x_order*D[order]))
+        x_j = (s + j - 1) / j = (t - (t_old_j)) / (j*h),  t_old_j = t - (j-1)*h
+
+    This is the standard nested-multiplication scheme for Newton's divided
+    difference polynomial (e.g. Burden & Faires, *Numerical Analysis*), and
+    is both asymptotically optimal (`O(order)` per evaluation point, vs. the
+    naive `O(order**3)` of expanding and differentiating each product term
+    from scratch) and better conditioned (no explicit `h**j` powers or raw
+    products that can under/overflow for larger `order`/`h`).
+
+    `P'(t)` is obtained for free, in the same `O(order)` pass, by carrying a
+    "dual number" `(value, d value/dt)` pair through the nested recursion
+    and applying the product rule at each step (`D[j-1]` is constant in
+    `t`, so `d/dt[D[j-1] + x_j*v] = (dx_j/dt)*v + x_j*(dv/dt)`); this is
+    forward-mode automatic differentiation applied to Horner's rule. Both
+    formulas were cross-checked against `scipy.interpolate.KroghInterpolator`
+    (an independent, differently-implemented Newton-form interpolator) in
+    `test_bdf_dense_output.py`.
+
+    Note that `P'(t)` is nonetheless generically *less* accurate than
+    `P(t)`: if `P` approximates `y` to `O(h**(order+1))`, its derivative only
+    approximates `y'` to `O(h**order)` -- differentiating an interpolant
+    always costs one order of accuracy. This is a structural property of any
+    y-only interpolant (confirmed empirically on a model problem: observed
+    convergence rates were `order+1` for `y` and `order` for `yp` across
+    `order = 1..4`), not an artifact of this evaluation scheme -- Radau's
+    dense output is more accurate for `yp` because its collocation
+    polynomial is built from the stage derivatives directly rather than by
+    differentiating a `y`-only fit.
+    """
     def __init__(self, t_old, t, h, order, D):
         super().__init__(t_old, t)
         self.order = order
-        self.t_shift = self.t - h * np.arange(self.order)
-        self.denom = h * (1 + np.arange(self.order))
         self.D = D
         self.h = h
 
     def _call_impl(self, t):
-        # if t.ndim == 0:
-        #     dt = t - self.t_shift
-        #     x = (t - self.t_shift) / self.denom
-        #     p = np.cumprod(x)
-        # else:
-        #     dt = t - self.t_shift[:, None]
-        #     x = (t - self.t_shift[:, None]) / self.denom[:, None]
-        #     p = np.cumprod(x, axis=0)
-
-        # with np.errstate(divide="ignore", invalid="ignore"):
-        #     dp = p * np.cumsum(1 / dt, axis=0)
-        #     mask = np.abs(dt) == 0
-        #     mask.nonzero()
-        #     # idx = np.where(mask, axis=0)
-        #     # dp[np.abs(dt) == 0] = 0
-
-        # y = np.dot(self.D[1:].T, p)
-        # yp = np.dot(self.D[1:].T, dp)
-        # if y.ndim == 1:
-        #     y += self.D[0]
-        # else:
-        #     y += self.D[0, :, None]
-
-        # # if np.any(mask):
-        # #     print(f"hit grid exactly")
-        # #     # yp[:, mask[0, :]] = np.dot(self.D[1:].T, mask)
-        # #     for i in range(len(t)):
-        # #         idx = mask[i]
-        # #         yp[:, i] = self.D[0, :, None]
-        # #         print(f"")
-
-        # return y, yp
-
-        vector_valued = t.ndim > 0
+        scalar = t.ndim == 0
         t = np.atleast_1d(t)
+        n_pts = len(t)
 
-        # ######################################################
-        # # 0. default interpolation for y and yp is set to zero
-        # ######################################################
-        # x = (t - self.t_shift[:, None]) / self.denom[:, None]
-        # p = np.cumprod(x, axis=0)
-        # y = self.D[0, :, None] + np.dot(self.D[1:].T, p)
-        # return y, 0 * y
+        # innermost term of the nested form, D[order], constant in t
+        v = np.tile(self.D[self.order, :, None], (1, n_pts)).astype(self.D.dtype)
+        dv = np.zeros_like(v)
 
+        for j in range(self.order, 0, -1):
+            t_old_j = self.t - (j - 1) * self.h
+            x_j = (t - t_old_j) / (j * self.h)
+            dx_j = 1.0 / (j * self.h)
 
-        # #######################################################
-        # # 1. Vectorized implementation of P(t) as given in 
-        # #    reference [2]_. Logarithmic differentiation gives 
-        # #    the derivative P'(t).
-        # # TODO: Vectorized implementation of yp is not valid 
-        # #       when t - t_shift = 0.
-        # #######################################################
-        # dt = t - self.t_shift[:, None]
-        # if not np.all(np.abs(dt) > 0):
-        #     print("logarithmix differentiation is not valid")
-        # x = dt / self.denom[:, None]
-        # p = np.cumprod(x, axis=0)
+            # dual-number multiply: new_v = D[j-1] + x_j*v
+            # d(new_v)/dt = dx_j*v + x_j*dv
+            new_v = self.D[j - 1, :, None] + x_j[None, :] * v
+            new_dv = dx_j * v + x_j[None, :] * dv
+            v, dv = new_v, new_dv
 
-        # # # dp = p * np.cumsum(1 / dt, axis=0)
-        # # with np.errstate(divide="ignore", invalid="ignore"):
-        # #     dp = p * np.cumsum(1 / dt, axis=0)
-        # #     # dp[np.abs(dt) == 0] = 0
-
-        # # try:
-        # #     dp = p * np.cumsum(1 / dt, axis=0)
-        # # except:
-        # #     print(f"warning")
-
-        # y = self.D[0, :, None] + np.dot(self.D[1:].T, p)
-        # # yp = np.dot(self.D[1:].T, dp)
-
-        # if vector_valued:
-        #     y = np.squeeze(y)
-        #     # yp = np.squeeze(yp)
-
-        # # return y, yp
-        # return y, np.zeros_like(y)
-
-        # # # TODO: Compute this derivative efficiently, 
-        # # # see https://stackoverflow.com/questions/40916955/how-to-compute-gradient-of-cumprod-safely
-        # # dp = np.cumsum((p)[::-1], axis=0)[::-1] / x
-        # # yp = np.dot(self.D[1:].T, dp)
-        # yp = np.zeros_like(y)
-
-        # if vector_valued:
-        #     y = np.squeeze(y)
-        #     yp = np.squeeze(yp)
-
-        # return y, yp
-
-        ############################################################
-        # 2. naive implementation of P(t) and P'(t) of p. 7 in [2]_.
-        ############################################################
-        y2 = np.zeros((self.D.shape[1], len(t)), dtype=self.D.dtype)
-        y2 += self.D[0, :, None]
-        yp2 = np.zeros_like(y2)
-        for j in range(1, self.order + 1):
-            fac2 = np.ones_like(t)
-            dfac2 = np.zeros_like(t)
-            for m in range(j):
-                fac2 *= t - (self.t - m * self.h)
-
-                dprod2 = np.ones_like(t)
-                for i in range(j):
-                    if i != m:
-                        dprod2 *= t - (self.t - i * self.h)
-                dfac2 += dprod2
-
-            denom = factorial(j) * self.h**j
-            y2 += self.D[j, :, None] * fac2 / denom
-            yp2 += self.D[j, :, None] * dfac2 / denom
-
-        if vector_valued == 0:
-            y2 = np.squeeze(y2)
-            yp2 = np.squeeze(yp2)
-
-        return y2, yp2
-    
-        #########################################################################
-        # 3. compute both values by Horner's rule,
-        # see see https://orionquest.github.io/Numacom/lectures/interpolation.pdf
-        #########################################################################
-        # y3 = np.zeros((self.D.shape[1], len(t)), dtype=self.D.dtype)
-        # y3 += self.D[n, :, None]
-        # yp3 = np.zeros_like(y3)
-        # for j in range(n, 0, -1):
-        #     x = (t - (self.t - (j - 1) * self.h)) / (j * self.h)
-        #     yp3 = y3 + x * yp3 * (j * self.h)
-        #     yp3 /= (j * self.h)
-        #     y3 = self.D[j - 1, :, None] + x * y3
-
-        # if vector_valued == 0:
-        #     y3 = np.squeeze(y3)
-        #     yp3 = np.squeeze(yp3)
-
-        # return y3, yp3
-
-
-# class BdfDenseOutput(DAEDenseOutput):
-#     """Newton backward-difference interpolant for the BDF solution.
-
-#     Both y(t) and yp(t) are evaluated in a single O(order) Horner pass
-#     using dual-number differentiation.
-
-#     The interpolant P(t) satisfies P(t_n - j·h) = y_{n-j} for j = 0..order-1.
-#     P'(t) is the analytical time-derivative of P.
-#     """
-
-#     def __init__(self, t_old, t, h, order, D):
-#         super().__init__(t_old, t)
-#         self.order = order
-#         self.h = h          # signed step size: h = direction * h_abs
-#         self.t_n = t        # current time = right end of the interpolation window
-#         self.D = D          # shape (order+1, n): divided differences
-
-#     def _call_impl(self, t):
-#         """Evaluate (y(t), yp(t)) using Horner's rule with dual-number derivative.
-
-#         The Newton form of P(t) is:
-#             P = D[0] + x_1*(D[1] + x_2*(D[2] + ... + x_q*D[q]))
-#         where x_j = (t - (t_n - (j-1)*h)) / (j*h).
-
-#         Carrying dual variables (v, dv/dt) through the Horner recurrence gives
-#         both P(t) and P'(t) in a single O(order) pass — no second traversal needed.
-#         """
-#         scalar = t.ndim == 0
-#         t = np.atleast_1d(t)           # (n_pts,)
-#         n_pts = len(t)
-#         n     = self.D.shape[1]        # state dimension
-
-#         # Initialise with the innermost term D[order] (constant in t)
-#         # v : (n, n_pts) — running polynomial value
-#         # dv: (n, n_pts) — running derivative d/dt of v
-#         v  = np.tile(self.D[self.order, :, None], (1, n_pts))   # (n, n_pts)
-#         dv = np.zeros_like(v)
-
-#         for j in range(self.order, 0, -1):
-#             # Node for this Horner step
-#             node = self.t_n - (j - 1) * self.h   # scalar
-#             x_j  = (t - node) / (j * self.h)     # (n_pts,)
-#             dx_j = 1.0 / (j * self.h)            # scalar (same for all pts)
-
-#             # Dual-number multiply: new = D[j-1] + x_j * v
-#             # d(new)/dt = dx_j * v + x_j * dv
-#             new_v  = self.D[j - 1, :, None] + x_j[None, :] * v
-#             new_dv = dx_j * v + x_j[None, :] * dv
-#             v, dv = new_v, new_dv
-
-#         if scalar:
-#             return np.squeeze(v), np.squeeze(dv)
-#         return v, dv
+        if scalar:
+            return np.squeeze(v), np.squeeze(dv)
+        return v, dv
