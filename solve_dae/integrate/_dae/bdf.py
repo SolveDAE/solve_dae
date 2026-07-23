@@ -64,6 +64,48 @@ def solve_bdf_system(fun, t_new, y_predict, c, psi, LU, solve_lu, scale, tol):
     return converged, k + 1, y, yp, d
 
 
+def predict_factor(h_abs, h_abs_old, error_norm, error_norm_old, order):
+    """Predict by which factor to increase/decrease the step size.
+
+    The algorithm is described in [1]_.
+
+    Parameters
+    ----------
+    h_abs, h_abs_old : float
+        Current and previous values of the step size, `h_abs_old` can be None
+        (see Notes).
+    error_norm, error_norm_old : float
+        Current and previous values of the error norm, `error_norm_old` can
+        be None (see Notes).
+    order : int
+        Order of the BDF method.
+
+    Returns
+    -------
+    factor : float
+        Predicted factor.
+
+    Notes
+    -----
+    If `h_abs_old` and `error_norm_old` are both not None then a two-step
+    algorithm is used, otherwise a one-step algorithm is used.
+
+    References
+    ----------
+    .. [1] E. Hairer, S. P. Norsett G. Wanner, "Solving Ordinary Differential
+           Equations II: Stiff and Differential-Algebraic Problems", Sec. IV.8.
+    """
+    if error_norm_old is None or h_abs_old is None or error_norm == 0:
+        multiplier = 1
+    else:
+        multiplier = h_abs / h_abs_old * (error_norm_old / error_norm) ** (1 / (order + 1))
+
+    with np.errstate(divide='ignore'):
+        factor = min(1, multiplier) * error_norm ** (-1 / (order + 1))
+
+    return factor
+
+
 class BDFDAE(DaeSolver):
     """Implicit method based on backward-differentiation formulas.
 
@@ -267,6 +309,8 @@ class BDFDAE(DaeSolver):
         self.order = 1
         self.n_equal_steps = 0
         self.LU = None
+        self.h_abs_old = None
+        self.error_norm_old = None
 
     def _step_impl(self):
         t = self.t
@@ -280,12 +324,18 @@ class BDFDAE(DaeSolver):
             h_abs = max_step
             change_D(D, self.order, max_step / self.h_abs)
             self.n_equal_steps = 0
+            h_abs_old = None
+            error_norm_old = None
         elif self.h_abs < min_step:
             h_abs = min_step
             change_D(D, self.order, min_step / self.h_abs)
             self.n_equal_steps = 0
+            h_abs_old = None
+            error_norm_old = None
         else:
             h_abs = self.h_abs
+            h_abs_old = self.h_abs_old
+            error_norm_old = self.error_norm_old
 
         atol = self.atol
         rtol = self.rtol
@@ -355,7 +405,7 @@ class BDFDAE(DaeSolver):
 
             if error_norm > 1:
                 factor = max(MIN_FACTOR,
-                             safety * error_norm ** (-1 / (order + 1)))
+                             safety * predict_factor(h_abs, h_abs_old, error_norm, error_norm_old, order))
                 h_abs *= factor
                 change_D(D, order, factor)
                 self.n_equal_steps = 0
@@ -371,6 +421,8 @@ class BDFDAE(DaeSolver):
         self.yp = yp_new
 
         self.h_abs = h_abs
+        self.h_abs_old = h_abs
+        self.error_norm_old = error_norm
         self.Jy = Jy
         self.Jyp = Jyp
         self.LU = LU
@@ -405,14 +457,19 @@ class BDFDAE(DaeSolver):
 
         # choose order with largest factor
         delta_order = np.argmax(factors) - 1
-
-        # choose order with smallest error
-        # TODO: This choice is advertised in Shampine2002 but experiments 
-        # indicate it is not worth it
-        # delta_order = np.argmin(error_norms) - 1
-
         order += delta_order
         self.order = order
+
+        if delta_order != 0:
+            # The predictive controller compares error norms of consecutive
+            # steps of the *same* order (Hairer & Wanner, Sec. IV.8). Once
+            # the order changes, that history is no longer meaningful, so
+            # fall back to the one-step estimate for the next step.
+            self.h_abs_old = None
+            self.error_norm_old = None
+        # # TODO: Simple reference solution that never uses the predictive controller
+        # self.h_abs_old = None
+        # self.error_norm_old = None
 
         factor = min(MAX_FACTOR, safety * np.max(factors))
         self.h_abs *= factor
