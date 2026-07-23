@@ -29,7 +29,9 @@ More information about both methods are given in the specific class documentatio
 
 ## To pique your curiosity
 
-The [Kármán vortex street](https://en.wikipedia.org/wiki/K%C3%A1rm%C3%A1n_vortex_street) solved by a finite element discretization of the [weak form of the incompressible Navier-Stokes equations](https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations#Weak_form) using [FEniCS](https://fenicsproject.org/) and the three stage Radau IIA method.
+The [Kármán vortex street](https://en.wikipedia.org/wiki/K%C3%A1rm%C3%A1n_vortex_street) solved by a finite element discretization of the [weak form of the incompressible Navier-Stokes equations](https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations#Weak_form) using [FEniCSx](https://fenicsproject.org/) and the three stage Radau IIA method. The full, self-contained source is at [examples/daes/von_karman_vortex_street.py](examples/daes/von_karman_vortex_street.py), or try it instantly, with no local install, as a [Colab notebook](https://colab.research.google.com/github/SolveDAE/solve_dae/blob/main/examples/daes/von_karman_vortex_street.ipynb):
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SolveDAE/solve_dae/blob/main/examples/daes/von_karman_vortex_street.ipynb)
 
 [![Karman](https://github.com/user-attachments/assets/3f5202f7-7666-4e4a-94dc-26f0759abef7)](https://raw.githubusercontent.com/SolveDAE/solve_dae/main/data/img/von_Karman.gif)
 
@@ -107,6 +109,7 @@ More examples are given in the [examples](examples/) directory, which includes
     * [Kvaernø's problem (index 1)](examples/daes/kvaerno.py)
     * [Jay's probem (index 2)](examples/daes/jay.py)
     * [Knife edge (index 2)](examples/daes/knife_edge.py)
+    * [Von Karman vortex street with FEniCSx (index 2)](examples/daes/von_karman_vortex_street.py) ([Colab notebook](examples/daes/von_karman_vortex_street.ipynb))
     * [Cartesian pendulum (index 3)](examples/daes/pendulum.py)
     * [Particle on circular track (index 3)](examples/daes/arevalo.py)
     * [Andrews' squeezer mechanism (index 3)](examples/daes/andrews.py)
