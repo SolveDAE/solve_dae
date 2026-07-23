@@ -80,10 +80,18 @@ def test_integration_rational(first_step, vectorized, method, t_span, jac, jac_s
 
     tc = np.linspace(*t_span)
     yc_true = sol_rational(tc)
-    yc = res.sol(tc)[0]
+    ypc_true = fun_rational(tc, yc_true)
+    yc, ypc = res.sol(tc)
 
     e = compute_error(yc, yc_true, rtol, atol)
     assert_(np.all(e < 6))
+
+    # BDF's dense-output derivative is markedly less accurate than its
+    # value interpolant (see roadmap: BdfDenseOutput uses a naive O(order^2)
+    # direct evaluation; more accurate variants exist but are unwired), so
+    # it needs a looser bound here than Radau's collocation-based yp output.
+    e = compute_error(ypc, ypc_true, rtol, atol)
+    assert_(np.all(e < (60 if method == "BDF" else 6)))
 
     tc = (t_span[0] + t_span[-1]) / 2
     yc_true = sol_rational(tc)

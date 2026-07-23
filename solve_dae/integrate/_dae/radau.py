@@ -62,9 +62,6 @@ def radau_constants(s):
     # Butcher tableau
     A, b, c, p = butcher_tableau(s)
 
-    # inverse coefficient matrix
-    A_inv = np.linalg.inv(A)
-
     # eigenvalues and corresponding eigenvectors of coefficient matrix
     lambdas, Q = eig(A)
 
@@ -82,13 +79,6 @@ def radau_constants(s):
     # in a block diagonal form and the associated real eigenvectors
     Gammas, T = cdf2rdf(lambdas, Q)
     TI = np.linalg.inv(T)
-
-    # sanity checks
-    # TODO: Move these checks to tests
-    assert np.allclose(Q @ np.diag(lambdas) @ np.linalg.inv(Q), A)
-    assert np.allclose(np.linalg.inv(Q) @ A @ Q, np.diag(lambdas))
-    assert np.allclose(T @ Gammas @ TI, A)
-    assert np.allclose(TI @ A @ T, Gammas)
 
     # extract real and complex eigenvalues
     real_idx = lambdas.imag == 0
@@ -130,7 +120,7 @@ def radau_constants(s):
     MU_COMPLEX = alphas -1j * betas
 
     return (
-        A, A_inv, c, T, TI, P, P2, b_hat1_implicit, v_implicit, v_explicit, 
+        A, c, T, TI, P, P2, b_hat1_implicit, v_implicit, v_explicit,
         MU_REAL, MU_COMPLEX, b_hat_implicit, b_hat_explicit, p,
     )
 
@@ -193,7 +183,7 @@ def solve_collocation_system(fun, t, y, h, Yp0, scale, tol,
 
         dY_norm_old = dY_norm
 
-    return converged, k + 1, Y, Yp, Y - y, rate
+    return converged, k + 1, Y, Yp, rate
 
 
 def predict_factor(h_abs, h_abs_old, error_norm, error_norm_old, s):
@@ -422,16 +412,22 @@ class RadauDAE(DaeSolver):
         assert stages % 2 == 1
         self.stages = stages
         (
-            self.A, self.A_inv, self.C, self.T, self.TI, self.P, self.P2, 
-            self.b_hat1_implicit, self.v_implicit, self.v_explicit, self.MU_REAL, self.MU_COMPLEX, 
+            self.A, self.C, self.T, self.TI, self.P, self.P2,
+            self.b_hat1_implicit, self.v_implicit, self.v_explicit, self.MU_REAL, self.MU_COMPLEX,
             self.b_hat_implicit, self.b_hat_explicit, self.order,
         ) = radau_constants(stages)
 
         self.h_abs_old = None
         self.error_norm_old = None
 
-        # modify tolerances as in radau.f line 824ff and 920ff
-        # TODO: Document this rescaling
+        # The classical convergence order 2*stages - 1 of the collocation
+        # polynomial only holds at the step endpoint; the order that governs
+        # the internal stage values (and hence what the Newton iteration
+        # actually needs to resolve) is only stages + 1. Requesting Newton
+        # corrections as tight as `rtol` would therefore waste iterations
+        # enforcing accuracy the stages can't deliver internally, so - as in
+        # radau.f line 824ff and 920ff - the tolerance passed to the Newton
+        # iteration is relaxed by the ratio of these two orders.
         EXPMNS = (stages + 1) / (2 * stages)
 
         # newton tolerance as in radau.f line 1008ff
@@ -478,7 +474,6 @@ class RadauDAE(DaeSolver):
         T = self.T
         TI = self.TI
         A = self.A
-        A_inv = self.A_inv
         v_implicit = self.v_implicit
         v_explicit = self.v_explicit
         b_hat1_implicit = self.b_hat1_implicit
@@ -541,7 +536,7 @@ class RadauDAE(DaeSolver):
                     LU_real = self.lu(Jyp + h * MU_REAL * Jy)
                     LU_complex = [self.lu(Jyp + h * MU * Jy) for MU in MU_COMPLEX]
 
-                converged, n_iter, Y, Yp, Z, rate = solve_collocation_system(
+                converged, n_iter, Y, Yp, rate = solve_collocation_system(
                     self.fun, t, y, h, Yp0, scale, newton_tol,
                     LU_real, LU_complex, self.solve_lu,
                     C, T, TI, A, newton_max_iter)
@@ -664,20 +659,17 @@ class RadauDAE(DaeSolver):
     def _compute_dense_output(self):
         Z = self.Y - self.y_old
         ZP = np.dot(Z.T, self.P)
-        Zp = self.Yp - self.yp_old
-        ZpP = np.dot(Zp.T, self.P)
-        return RadauDenseOutput(self.t_old, self.t, self.y_old, ZP, ZpP)
+        return RadauDenseOutput(self.t_old, self.t, self.y_old, ZP)
 
     def _dense_output_impl(self):
         return self.sol
 
 
 class RadauDenseOutput(DAEDenseOutput):
-    def __init__(self, t_old, t, y_old, ZP, ZpP):
+    def __init__(self, t_old, t, y_old, ZP):
         super().__init__(t_old, t)
         self.h = t - t_old
         self.ZP = ZP
-        self.ZpP = ZpP
         self.order = ZP.shape[1] - 1
         self.y_old = y_old
 

@@ -188,10 +188,18 @@ def consistent_initial_conditions(fun, t0, y0, yp0, jac=None, fixed_y0=None,
                                   newton_maxiter=10, chord_iter=3,
                                   safety=0.5, *args):
     """Compute consistent initial conditions as discussed in [1]_.
-    
+
+    Only differentiation index <= 1 DAEs are supported: internally,
+    `solve_underdetermined_system` raises ``ValueError("Index greater than
+    one.")`` once the rank deficiency it detects exceeds the number of fixed
+    unknowns, which is the signature of a higher-index problem. For such
+    systems, consistent values have to be supplied by other means (see e.g.
+    ``examples/daes/andrews.py`` for an index-2/3 example that hardcodes
+    literature values instead of calling this function).
+
         References
     ----------
-    .. [1] L. F. Shampine, "Solving 0 = F(t, y(t), y'(t)) in Matlab", Journal 
+    .. [1] L. F. Shampine, "Solving 0 = F(t, y(t), y'(t)) in Matlab", Journal
            of Numerical Mathematics, vol. 10, no. 4, 2002, pp. 291-310.
     """
     n = len(y0)
@@ -203,9 +211,9 @@ def consistent_initial_conditions(fun, t0, y0, yp0, jac=None, fixed_y0=None,
 
             def fun_composite(t, z):
                 y, yp = z[:n], z[n:]
-                return fun(t, y, yp)
-            
-            J = approx_derivative(lambda z: fun_composite(t, z), 
+                return fun(t, y, yp, *args)
+
+            J = approx_derivative(lambda z: fun_composite(t, z),
                                   z, method="2-point")
             J = J.reshape((n, 2 * n))
             Jy, Jyp = J[:, :n], J[:, n:]

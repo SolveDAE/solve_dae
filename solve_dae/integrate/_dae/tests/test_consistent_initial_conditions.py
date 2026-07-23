@@ -165,6 +165,32 @@ def test_weissinger(y0_and_yp0_and_fixed_y0_and_fixed_yp0, jac):
     assert np.allclose(f0, np.zeros_like(f0), rtol=rtol, atol=atol)
 
 
+def fun_implicit_with_args(t, y, yp, scale):
+    return np.array([
+        2 * yp[0] - scale * y[1],
+        y[0] + y[1],
+    ])
+
+
+def test_implicit_with_args_and_default_jacobian():
+    # Regression test: the default (finite-difference) Jacobian used to drop
+    # `*args` when evaluating `fun` internally, so any caller relying on the
+    # default Jacobian together with a non-empty `args` would either hit a
+    # TypeError or get a Jacobian for the wrong arguments.
+    t0 = 0
+    y0 = [1, 0]
+    yp0 = [0, 0]
+    scale = 2.0
+
+    f0 = fun_implicit_with_args(t0, y0, yp0, scale)
+    assert not np.allclose(f0, np.zeros_like(f0), rtol=rtol, atol=atol)
+
+    y0, yp0, f0 = consistent_initial_conditions(
+        fun_implicit_with_args, t0, y0, yp0, None, None, None,
+        rtol, atol, 10, 3, 0.5, scale)
+    assert np.allclose(f0, np.zeros_like(f0), rtol=rtol, atol=atol)
+
+
 # if __name__ == "__main__":
 #     for params in parameters_implicit:
 #         test_implicit(*params)

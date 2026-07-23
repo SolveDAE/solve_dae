@@ -109,10 +109,7 @@ def handle_events(sol, events, active_events, event_count, max_events,
     return active_events, roots, terminate
 
 
-# TODO:
-# - add number of solve LGS's as done by matlab.
-# - add var_index in error estimate
-def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None, 
+def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
               dense_output=False, events=None, var_index=None,
               vectorized=False, args=None, **options):
     """Solve an initial value problem for a system of differential algebraic 
@@ -207,10 +204,17 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
         You can assign attributes like ``event.terminal = True`` to any
         function in Python.
     var_index : array_like, shape (n,), optional
-        Differentiation index of the respective row of f(t, y, y') = 0. 
-        Depending on this index, the error estimates are scaled by the 
+        Differentiation index of the respective row of f(t, y, y') = 0.
+        Depending on this index, the error estimates are scaled by the
         stepsize h**(index - 1) in order to ensure convergence.
         Default is None, which means all equations are differential equations.
+
+        .. note::
+           Not implemented yet - passing anything other than None raises
+           `NotImplementedError`. See
+           https://github.com/SolveDAE/solve_dae/issues (index > 1 support)
+           for the tracking issue. `consistent_initial_conditions` is
+           likewise currently limited to differentiation index 1.
     vectorized : bool, optional
         Whether `fun` can be called in a vectorized fashion. Default is False.
 
@@ -319,6 +323,10 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
         Number of evaluations of the Jacobian.
     nlu : int
         Number of LU decompositions.
+    nlusolve : int
+        Number of times a factorized linear system was solved (as reported
+        by e.g. MATLAB's `decic`/`ode15s`). Can exceed `nlu` since a single
+        LU factorization is reused for several Newton iterations/stages.
     status : int
         Reason for algorithm termination:
 
@@ -364,7 +372,11 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
 
     """
     if var_index is not None:
-        raise NotImplementedError("This feature is not implemented yet.")
+        raise NotImplementedError(
+            "var_index is not implemented yet: error estimates are not "
+            "currently scaled by differentiation index. Pass None (the "
+            "default), which treats every equation as index <= 1."
+        )
     
     if method not in METHODS and not (
             inspect.isclass(method) and issubclass(method, DaeSolver)):
@@ -474,7 +486,6 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
             sol = None
 
         if events is not None:
-            # raise NotImplementedError("Events are not ready yet")
             g_new = [event(t, y, yp) for event in events]
             active_events = find_active_events(g, g_new, event_dir)
             if active_events.size > 0:
@@ -530,7 +541,6 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
     message = MESSAGES.get(status, message)
 
     if t_events is not None:
-        # raise NotImplementedError("Events are not ready yet")
         t_events = [np.asarray(te) for te in t_events]
         y_events = [np.asarray(ye) for ye in y_events]
         yp_events = [np.asarray(ype) for ype in yp_events]
@@ -553,5 +563,6 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
         sol = None
 
     return DaeResult(t=ts, y=ys, yp=yps, sol=sol, t_events=t_events, y_events=y_events,
-                     yp_events=yp_events, nfev=solver.nfev, njev=solver.njev, 
-                     nlu=solver.nlu, status=status, message=message, success=status>=0)
+                     yp_events=yp_events, nfev=solver.nfev, njev=solver.njev,
+                     nlu=solver.nlu, nlusolve=solver.nlusolve,
+                     status=status, message=message, success=status>=0)

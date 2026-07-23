@@ -3,12 +3,10 @@ from scipy.sparse import issparse, csc_matrix
 from scipy.sparse._sputils import isshape
 from scipy.optimize._numdiff import group_columns
 from scipy.integrate._ivp.common import (
-    validate_max_step, validate_tol, num_jac, 
+    validate_max_step, validate_tol, num_jac,
     validate_first_step,
 )
-from scipy.optimize._numdiff import approx_derivative
 from scipy.linalg import lu_factor, lu_solve
-from scipy.sparse import csc_matrix, issparse
 from scipy.sparse.linalg import splu
 from .common import select_initial_step
 
@@ -154,6 +152,10 @@ class DaeSolver:
         Number of the Jacobian evaluations.
     nlu : int
         Number of LU decompositions.
+    nlusolve : int
+        Number of times a factorized linear system was solved (as reported
+        by e.g. MATLAB's `decic`/`ode15s`). Can exceed `nlu` since a single
+        LU factorization is reused for several Newton iterations/stages.
     """
     TOO_SMALL_STEP = "Required step size is less than spacing between numbers."
 
@@ -180,7 +182,7 @@ class DaeSolver:
         self.nfev = 0
         self.njev = 0
         self.nlu = 0
-        self._nlusolve = 0
+        self.nlusolve = 0
 
         if vectorized:
             def fun_single(t, y, yp):
@@ -224,7 +226,7 @@ class DaeSolver:
                 return splu(A)
 
             def solve_lu(LU, b):
-                self._nlusolve += 1
+                self.nlusolve += 1
                 return LU.solve(b)
         else:
             def lu(A):
@@ -232,7 +234,7 @@ class DaeSolver:
                 return lu_factor(A, overwrite_a=True)
 
             def solve_lu(LU, b):
-                self._nlusolve += 1
+                self.nlusolve += 1
                 return lu_solve(LU, b, overwrite_b=True)
 
         self.lu = lu
@@ -272,32 +274,19 @@ class DaeSolver:
 
                 f = self.fun_single(t, y, yp)
 
-                # Jy, self.jac_factor_y = num_jac(
-                #     lambda t, y: self.fun_vectorized(t, y, yp), 
-                #     t, y, f, self.atol, self.jac_factor_y, sparsity_y)
-                # Jyp, self.jac_factor_yp = num_jac(
-                #     lambda t, yp: self.fun_vectorized(t, y, yp), 
-                #     t, yp, f, self.atol, self.jac_factor_yp, sparsity_yp)
-                
-                # note: this choice is better but not optimal
+                # `num_jac`'s default threshold is `atol`, which assumes `f`
+                # itself is scaled to `atol`-sized absolute precision; here
+                # the finite-difference step instead needs to resolve
+                # perturbations down to the *relative* accuracy `rtol`
+                # demands, so `atol / rtol` is used as the threshold instead.
                 threshold = self.atol / self.rtol
                 Jy, self.jac_factor_y = num_jac(
-                    lambda t, y: self.fun_vectorized(t, y, yp), 
+                    lambda t, y: self.fun_vectorized(t, y, yp),
                     t, y, f, threshold, self.jac_factor_y, sparsity_y)
                 Jyp, self.jac_factor_yp = num_jac(
-                    lambda t, yp: self.fun_vectorized(t, y, yp), 
+                    lambda t, yp: self.fun_vectorized(t, y, yp),
                     t, yp, f, threshold, self.jac_factor_yp, sparsity_yp)
-                                
-                # # test better Jacobian approximation
-                # # method = "2-point"
-                # method = "3-point"
-                # Jy = approx_derivative(
-                #     lambda y: self.fun_single(t, y, yp), 
-                #     y, f0=f, sparsity=sparsity_y, method=method)
-                # Jyp = approx_derivative(
-                #     lambda yp: self.fun_single(t, y, yp), 
-                #     yp, f0=f, sparsity=sparsity_yp, method=method)
-                                
+
                 return Jy, Jyp
             
             Jy, Jyp = jac_wrapped(t0, y0, yp0)
@@ -370,15 +359,15 @@ class DaeSolver:
         if self.status != 'running':
             raise RuntimeError("Attempt to step on a failed or finished solver.")
 
-        # if self.n == 0 or self.t == self.t_bound:
-        #     # Handle corner cases of empty solver or no integration.
-        #     self.t_old = self.t
-        #     self.t = self.t_bound
-        #     message = None
-        #     self.status = 'finished'
-        # else:
-        t = self.t
-        success, message = self._step_impl()
+        if self.n == 0 or self.t == self.t_bound:
+            # Handle corner cases of empty solver or no integration.
+            self.t_old = self.t
+            self.t = self.t_bound
+            message = None
+            self.status = 'finished'
+        else:
+            t = self.t
+            success, message = self._step_impl()
 
         if not success:
             self.status = 'failed'
@@ -401,11 +390,11 @@ class DaeSolver:
             raise RuntimeError("Dense output is available after a successful step was made.")
         return self._dense_output_impl()
 
-    # def _step_impl(self):
-    #     raise NotImplementedError
+    def _step_impl(self):
+        raise NotImplementedError
 
-    # def _dense_output_impl(self):
-    #     raise NotImplementedError
+    def _dense_output_impl(self):
+        raise NotImplementedError
 
 
 class DAEDenseOutput:
@@ -445,5 +434,5 @@ class DAEDenseOutput:
             raise ValueError("`t` must be a float or a 1-D array.")
         return self._call_impl(t)
 
-    # def _call_impl(self, t):
-    #     raise NotImplementedError
+    def _call_impl(self, t):
+        raise NotImplementedError
