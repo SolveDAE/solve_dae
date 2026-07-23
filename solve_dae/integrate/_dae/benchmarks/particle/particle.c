@@ -40,7 +40,7 @@ static int check_retval(void* returnvalue, const char* funcname, int opt);
 int main(void)
 {
   void* mem;
-  N_Vector yy, yp, avtol, y_true, yp_true, w, diff_y, diff_yp;
+  N_Vector yy, yp, avtol, y_true, yp_true;
   sunrealtype rtol, atol, *yval, *ypval, *atval;
   sunrealtype t0, t1, tout, tret;
   int iout, retval, retvalr;
@@ -51,14 +51,31 @@ int main(void)
   FILE* FID;
 
   mem = NULL;
-  yy = yp = avtol = y_true = yp_true = w = diff_y = NULL;
+  yy = yp = avtol = y_true = yp_true = NULL;
   yval = ypval = atval = NULL;
   A                    = NULL;
   LS                   = NULL;
   NLS                  = NULL;
 
+  /* error_y, error_yp are the naive L2 errors over the full 6-component
+   * y and y' vectors (as in the original version of this file) -- kept
+   * around because they are still useful for some purposes, e.g.
+   * comparing directly against other IDA/DASSL-style benchmarks that
+   * report exactly this metric.
+   *
+   * error_state is the L2 error of just the physical state (x, y, u, v).
+   * error_la, error_mu are the errors of the actual Lagrange multipliers
+   * lambda, mu, which in this stabilized-index-1 (Anantharaman/Hiller)
+   * formulation appear as yp[4], yp[5] (the derivatives of the auxiliary
+   * integrated states La, Mu), NOT as yy[4], yy[5]. Reporting them
+   * separately from the state matters because the multipliers generally
+   * converge at a different (typically lower) order than x, y, u, v, so
+   * lumping everything into one combined norm would obscure that and make
+   * comparisons against solvers that treat the multipliers differently
+   * (e.g. RADAU5's GGL formulation, where lambda, mu are algebraic
+   * components of y itself) misleading. */
   FID = fopen("particle_errors_IDA.csv", "a");
-  fprintf(FID, "t, error_y, error_yp\n");
+  fprintf(FID, "rtol, elapsed_time, error_y, error_yp, error_state, error_la, error_mu\n");
   fclose(FID);
 
   // double m_max = 24.0;
@@ -85,13 +102,6 @@ int main(void)
     if (check_retval((void*)y_true, "N_VNew_Serial", 0)) { return (1); }
     yp_true = N_VClone(yy);
     if (check_retval((void*)yp_true, "N_VNew_Serial", 0)) { return (1); }
-    w = N_VClone(yy);
-    N_VConst(1.0, w);  // Set all weights to 1.0
-    if (check_retval((void*)w, "N_VNew_Serial", 0)) { return (1); }
-    diff_y = N_VClone(yy);
-    if (check_retval((void*)diff_y, "N_VNew_Serial", 0)) { return (1); }
-    diff_yp = N_VClone(yy);
-    if (check_retval((void*)diff_yp, "N_VNew_Serial", 0)) { return (1); }
 
     /* Initialize  y, y' */
     sol_true(t0, yy, yp);
@@ -142,20 +152,48 @@ int main(void)
     clock_t end = clock();
     double elapsed_time = (double)(end - start) / CLOCKS_PER_SEC;
 
-    /* compute error*/
+    /* compute error */
     sol_true(t1, y_true, yp_true);
-    N_VLinearSum(1.0, yy, -1.0, y_true, diff_y);
-    double error_y = N_VWL2Norm(diff_y, w);
-    N_VLinearSum(1.0, yp, -1.0, yp_true, diff_yp);
-    double error_yp = N_VWL2Norm(diff_yp, w);
+
+    sunrealtype* yv      = N_VGetArrayPointer(yy);
+    sunrealtype* ypv     = N_VGetArrayPointer(yp);
+    sunrealtype* yv_true = N_VGetArrayPointer(y_true);
+    sunrealtype* ypv_true = N_VGetArrayPointer(yp_true);
+
+    /* naive errors: L2 norm over the full 6-component y / y' vectors */
+    double error_y = 0.0;
+    double error_yp = 0.0;
+    for (int k = 0; k < NEQ; k++) {
+      double dy = yv[k] - yv_true[k];
+      double dyp = ypv[k] - ypv_true[k];
+      error_y += dy * dy;
+      error_yp += dyp * dyp;
+    }
+    error_y = sqrt(error_y);
+    error_yp = sqrt(error_yp);
+
+    /* state error: L2 norm over the physical state (x, y, u, v) only */
+    double error_state = 0.0;
+    for (int k = 0; k < 4; k++) {
+      double d = yv[k] - yv_true[k];
+      error_state += d * d;
+    }
+    error_state = sqrt(error_state);
+
+    /* multiplier errors: lambda = yp[4], mu = yp[5] */
+    double error_la = fabs(ypv[4] - ypv_true[4]);
+    double error_mu = fabs(ypv[5] - ypv_true[5]);
 
     /* write results to file */
     FID = fopen("particle_errors_IDA.csv", "a");
-    fprintf(FID, "%17.17e, %17.17e, %17.17e\n", elapsed_time, error_y, error_y);
+    fprintf(FID, "%17.17e, %17.17e, %17.17e, %17.17e, %17.17e, %17.17e, %17.17e\n",
+            rtol, elapsed_time, error_y, error_yp, error_state, error_la, error_mu);
     fclose(FID);
 
-    /* Print rtol, elapsed time and error */
-    printf("rtol: %e, elapsed time: %e, error_y: %e, error_yp: %e\n", rtol, elapsed_time, error_y, error_yp);
+    /* Print rtol, elapsed time and errors */
+    printf("rtol: %e, elapsed time: %e, error_y: %e, error_yp: %e, "
+           "error_state: %e, error_la: %e, error_mu: %e\n",
+           rtol, elapsed_time, error_y, error_yp, error_state, error_la, error_mu);
 
   }
 
@@ -169,8 +207,6 @@ int main(void)
   N_VDestroy(avtol);
   N_VDestroy(y_true);
   N_VDestroy(yp_true);
-  N_VDestroy(w);
-  N_VDestroy(diff_y);
   SUNContext_Free(&ctx);
 
   return (retval);
