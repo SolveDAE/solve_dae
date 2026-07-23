@@ -51,9 +51,9 @@ def run_brenan():
     y0, yp0 = sol_true(t0)
 
     # reference solution
-    y_ref = sol_true(t1)[0]
+    y_ref, yp_ref = sol_true(t1)
 
-    benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, "Brenan", y_ref)
+    benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, "Brenan", y_ref, yp_ref)
 
 
 if __name__ == "__main__":

@@ -73,7 +73,7 @@ def sol_true(t):
     return y, yp
 
 
-def run_arevalo():
+def run_particle():
     # exponents
     # m_max = 10
     # m_max = 24
@@ -99,4 +99,4 @@ def run_arevalo():
 
 
 if __name__ == "__main__":
-    run_arevalo()
+    run_particle()

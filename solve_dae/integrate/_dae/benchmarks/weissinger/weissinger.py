@@ -39,9 +39,9 @@ def run_weissinger():
     y0, yp0 = true_sol(t0)
 
     # reference solution
-    y_ref = true_sol(t1)[0]
+    y_ref, yp_ref = true_sol(t1)
 
-    benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, "Weissinger", y_ref)
+    benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, "Weissinger", y_ref, yp_ref)
 
 
 if __name__ == "__main__":
