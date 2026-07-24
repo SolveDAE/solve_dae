@@ -565,4 +565,6 @@ def solve_dae(fun, t_span, y0, yp0, method="Radau", t_eval=None,
     return DaeResult(t=ts, y=ys, yp=yps, sol=sol, t_events=t_events, y_events=y_events,
                      yp_events=yp_events, nfev=solver.nfev, njev=solver.njev,
                      nlu=solver.nlu, nlusolve=solver.nlusolve,
+                     naccpt=solver.naccpt, nrejct=solver.nrejct,
+                     nstep=solver.naccpt + solver.nrejct,
                      status=status, message=message, success=status>=0)

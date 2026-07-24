@@ -339,6 +339,7 @@ class BDFDAE(DaeSolver):
                     current_jac = True
 
             if not converged:
+                self.nrejct += 1
                 factor = 0.5
                 h_abs *= factor
                 change_D(D, order, factor)
@@ -353,6 +354,7 @@ class BDFDAE(DaeSolver):
             error_norm = norm(error / scale)
 
             if error_norm > 1:
+                self.nrejct += 1
                 factor = max(MIN_FACTOR,
                              safety * error_norm ** (-1 / (order + 1)))
                 h_abs *= factor
@@ -361,6 +363,7 @@ class BDFDAE(DaeSolver):
                 # As we didn't have problems with convergence, we don't
                 # reset LU here.
             else:
+                self.naccpt += 1
                 step_accepted = True
 
         self.n_equal_steps += 1

@@ -551,6 +551,7 @@ class RadauDAE(DaeSolver):
                     LU_complex = None
 
             if not converged:
+                self.nrejct += 1
                 h_abs *= 0.5
                 LU_real = None
                 LU_complex = None
@@ -595,12 +596,14 @@ class RadauDAE(DaeSolver):
             safety = 0.9 * (2 * newton_max_iter + 1) / (2 * newton_max_iter + n_iter)
 
             if error_norm > 1:
+                self.nrejct += 1
                 factor = predict_factor(h_abs, h_abs_old, error_norm, error_norm_old, s)
                 h_abs *= safety * factor
 
                 LU_real = None
                 LU_complex = None
             else:
+                self.naccpt += 1
                 step_accepted = True
 
         # Step is converged and accepted

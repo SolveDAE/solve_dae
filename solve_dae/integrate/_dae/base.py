@@ -156,6 +156,12 @@ class DaeSolver:
         Number of times a factorized linear system was solved (as reported
         by e.g. MATLAB's `decic`/`ode15s`). Can exceed `nlu` since a single
         LU factorization is reused for several Newton iterations/stages.
+    naccpt : int
+        Number of accepted steps.
+    nrejct : int
+        Number of rejected steps (Newton failed to converge or the local
+        error test failed). `naccpt + nrejct` is the total number of
+        attempted steps, matching RADAU5's NSTEP/NACCPT/NREJCT counters.
     """
     TOO_SMALL_STEP = "Required step size is less than spacing between numbers."
 
@@ -183,6 +189,8 @@ class DaeSolver:
         self.njev = 0
         self.nlu = 0
         self.nlusolve = 0
+        self.naccpt = 0
+        self.nrejct = 0
 
         if vectorized:
             def fun_single(t, y, yp):
