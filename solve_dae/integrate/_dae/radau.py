@@ -140,6 +140,7 @@ def solve_collocation_system(fun, t, y, h, Yp0, scale, tol,
     dY_norm_old = None
     dW_dot = np.empty_like(F)
     converged = False
+    thq_old = None
     rate = None
     for k in range(newton_max_iter):
         for i in range(s):
@@ -172,7 +173,9 @@ def solve_collocation_system(fun, t, y, h, Yp0, scale, tol,
 
         dY_norm = norm(dY / scale)
         if dY_norm_old is not None:
-            rate = dY_norm / dY_norm_old
+            thq = dY_norm / dY_norm_old
+            rate = thq if thq_old is None else np.sqrt(thq * thq_old)
+            thq_old = thq
 
         if (rate is not None and (rate >= 1 or rate ** (newton_max_iter - k) / (1 - rate) * dY_norm > tol)):
             break
@@ -401,7 +404,7 @@ class RadauDAE(DaeSolver):
                  first_step=None, newton_max_iter=None,
                  jac_recompute_rate=1e-3, jac_recompute_iter=2,
                  newton_iter_embedded=1,
-                 controller_deadband=(1.0, 1.2),
+                 controller_deadband=(0.8, 1.2),
                  **extraneous):
         warn_extraneous(extraneous)
         super().__init__(fun, t0, y0, yp0, t_bound, rtol, atol, 
