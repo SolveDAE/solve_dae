@@ -74,8 +74,28 @@ int main(void)
    * comparisons against solvers that treat the multipliers differently
    * (e.g. RADAU5's GGL formulation, where lambda, mu are algebraic
    * components of y itself) misleading. */
-  FID = fopen("particle_errors_IDA.csv", "a");
-  fprintf(FID, "rtol, elapsed_time, error_y, error_yp, error_state, error_la, error_mu\n");
+  /* nstep/naccpt/nrejct/nfev/njev/nlu/nlusolve mirror the metrics exported
+   * by the RADAU5 driver (particle_radau5.f90) and by solve_dae's Python
+   * solvers (see solve_dae/integrate/_dae/base.py), so all three can be
+   * compared directly:
+   *   naccpt   = IDAGetNumSteps           (IDA only counts accepted steps)
+   *   nrejct   = IDAGetNumErrTestFails + IDAGetNumNonlinSolvConvFails
+   *   nstep    = naccpt + nrejct
+   *   nfev     = IDAGetNumResEvals
+   *   njev     = IDAGetNumJacEvals
+   *   nlu      = IDAGetNumLinSolvSetups   (one dense LU factorization per setup)
+   *   nlusolve = IDAGetNumNonlinSolvIters (one linear solve per Newton iteration)
+   */
+  /* "w" (not "a"): each run of this program regenerates the whole file in
+   * one go (the loop below writes all m_max+1 rows), so re-running the
+   * binary must start from a clean file instead of appending a second
+   * header/row block (with a possibly different column count) on top of
+   * whatever an older build left behind -- that mismatch is exactly what
+   * makes np.loadtxt() in common.py choke with a "number of columns
+   * changed" error. */
+  FID = fopen("particle_errors_IDA.csv", "w");
+  fprintf(FID, "rtol, atol, elapsed_time, error_y, error_yp, error_state, error_la, error_mu, "
+               "nstep, naccpt, nrejct, nfev, njev, nlu, nlusolve\n");
   fclose(FID);
 
   // double m_max = 24.0;
@@ -106,9 +126,10 @@ int main(void)
     /* Initialize  y, y' */
     sol_true(t0, yy, yp);
       
-    /* define tolerances */
+    /* define tolerances (atol == rtol here, as in particle.py's atols = rtols) */
     rtol = pow(10, -(3 + m / 4));
-    N_VConst(rtol, avtol);
+    atol = rtol;
+    N_VConst(atol, avtol);
 
     /* Call IDACreate and IDAInit to initialize IDA memory */
     mem = IDACreate(ctx);
@@ -184,16 +205,43 @@ int main(void)
     double error_la = fabs(ypv[4] - ypv_true[4]);
     double error_mu = fabs(ypv[5] - ypv_true[5]);
 
-    /* write results to file */
+    /* solver statistics, see comment on the CSV header above */
+    long int nsteps = 0, netfails = 0, nncfails = 0;
+    long int nrevals = 0, njevals = 0, nlinsetups = 0, nniters = 0;
+    IDAGetNumSteps(mem, &nsteps);
+    IDAGetNumErrTestFails(mem, &netfails);
+    IDAGetNumNonlinSolvConvFails(mem, &nncfails);
+    IDAGetNumResEvals(mem, &nrevals);
+    IDAGetNumJacEvals(mem, &njevals);
+    IDAGetNumLinSolvSetups(mem, &nlinsetups);
+    IDAGetNumNonlinSolvIters(mem, &nniters);
+
+    long int naccpt = nsteps;
+    long int nrejct = netfails + nncfails;
+    long int nstep  = naccpt + nrejct;
+    long int nfev   = nrevals;
+    long int njev   = njevals;
+    long int nlu    = nlinsetups;
+    long int nlusolve = nniters;
+
+    /* write results to file. Float columns use %.4e (lowercase e, matching
+     * the fmt=["%.4e"]*n_float_cols+["%d"]*n_stats used by common.py's
+     * Python export) so all three benchmark drivers produce the same
+     * number format; the stat columns are plain integers (%ld), never
+     * scientific notation. */
     FID = fopen("particle_errors_IDA.csv", "a");
-    fprintf(FID, "%17.17e, %17.17e, %17.17e, %17.17e, %17.17e, %17.17e, %17.17e\n",
-            rtol, elapsed_time, error_y, error_yp, error_state, error_la, error_mu);
+    fprintf(FID, "%.4e, %.4e, %.4e, %.4e, %.4e, %.4e, %.4e, %.4e, "
+                 "%ld, %ld, %ld, %ld, %ld, %ld, %ld\n",
+            rtol, atol, elapsed_time, error_y, error_yp, error_state, error_la, error_mu,
+            nstep, naccpt, nrejct, nfev, njev, nlu, nlusolve);
     fclose(FID);
 
-    /* Print rtol, elapsed time and errors */
-    printf("rtol: %e, elapsed time: %e, error_y: %e, error_yp: %e, "
-           "error_state: %e, error_la: %e, error_mu: %e\n",
-           rtol, elapsed_time, error_y, error_yp, error_state, error_la, error_mu);
+    /* Print rtol, atol, elapsed time and errors */
+    printf("rtol: %e, atol: %e, elapsed time: %e, error_y: %e, error_yp: %e, "
+           "error_state: %e, error_la: %e, error_mu: %e, "
+           "nstep: %ld, naccpt: %ld, nrejct: %ld, nfev: %ld, njev: %ld, nlu: %ld, nlusolve: %ld\n",
+           rtol, atol, elapsed_time, error_y, error_yp, error_state, error_la, error_mu,
+           nstep, naccpt, nrejct, nfev, njev, nlu, nlusolve);
 
   }
 

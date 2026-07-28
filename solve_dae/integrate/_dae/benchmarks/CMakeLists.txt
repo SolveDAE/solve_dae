@@ -47,7 +47,7 @@ add_library(radau5 STATIC
     radau5/dc_decsol.f
 )
 
-# - index 3 DAE (GGL / stabilized-index-2 reformulation, see particle_radau5.f90)
-add_executable(particle_radau5 particle/particle_radau5.f90)
+# - index 3 DAE (GGL / stabilized-index-2 reformulation, see particle/particle.f90)
+add_executable(particle_radau5 particle/particle.f90)
 target_link_libraries(particle_radau5 PRIVATE radau5)
 

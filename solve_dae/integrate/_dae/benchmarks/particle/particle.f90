@@ -2,12 +2,12 @@
 !
 ! This driver is meant to be linked against E. Hairer's RADAU5 code
 ! (radau5.f, decsol.f, dc_decsol.f), copied verbatim into ../radau5/ so that
-! this shared solver code can be reused by other *_radau5.f90 drivers
-! alongside this one. Build with, e.g.:
+! this shared solver code can be reused by other RADAU5 drivers alongside
+! this one. Build with, e.g.:
 !
 !     gfortran -O2 -o particle_radau5 \
 !         ../radau5/radau5.f ../radau5/decsol.f ../radau5/dc_decsol.f \
-!         particle_radau5.f90
+!         particle.f90
 !     ./particle_radau5
 !
 ! or via CMake: from the benchmarks/ directory,
@@ -111,10 +111,11 @@ program particle_radau5
 
     external :: fcn, jacpart, maspart, soloutdummy
 
-    integer          :: m, mmax, i
+    integer          :: m, mmax, i, ic
     double precision :: pi, t0, t1, x, xend, h, rt
     double precision :: t_start, t_end, elapsed
     double precision :: err_state, err_la, err_mu
+    character(len=200) :: line
 
     pi    = 3.14159265358979324d0
     omega = 2.0d0*pi
@@ -124,8 +125,8 @@ program particle_radau5
     mmax = 40
 
     open(unit=10, file='particle_errors_RADAU5.csv', status='replace')
-    write(10,'(A)') 'rtol,elapsed_time,error_state,error_la,error_mu,'// &
-                     'nsteps,naccpt,nrejct,nfcn,njac'
+    write(10,'(A)') 'rtol,atol,elapsed_time,error_state,error_la,error_mu,'// &
+                     'nstep,naccpt,nrejct,nfev,njev,nlu,nlusolve'
 
     do m = 0, mmax
         rt = 10.0d0**( -(3.0d0 + dble(m)/4.0d0) )
@@ -183,10 +184,34 @@ program particle_radau5
 900     format('rtol=',es10.3,'  time=',es10.3,'  err_state=',es10.3, &
                '  err_la=',es10.3,'  err_mu=',es10.3)
 
-        write(10,910) rt, elapsed, err_state, err_la, err_mu, &
-                       iwork(16), iwork(17), iwork(18), iwork(14), iwork(15)
-910     format(es17.10,',',es17.10,',',es17.10,',',es17.10,',',es17.10, &
-               ',',i8,',',i8,',',i8,',',i8,',',i8)
+        ! IWORK(14..20) = NFCN, NJAC, NSTEP, NACCPT, NREJCT, NDEC, NSOL
+        ! (see radau5.f header); NDEC/NSOL are the number of LU
+        ! decompositions / forward-backward substitutions, reported here
+        ! as nlu/nlusolve to match the naming used by the Python solvers.
+        ! atol is written as `rt` (not atol(1)): RADAU5 overwrites RTOL(1)/
+        ! ATOL(1) in place with its internally transformed tolerances (see
+        ! radau5.f, RTOL(1)=0.1D0*RTOL(1)**EXPM), so atol(1) no longer holds
+        ! the requested tolerance after the call -- `rt` (== atol(1) before
+        ! the call, since atol==rtol==rt is used throughout) still does.
+        ! Whe scale the NDEC/NSOL by 2 since it only counts the number of
+        ! real + complex linear system decomposition/solve together. So two
+        ! linear systems are decomposed/solved when the respective counter
+        ! is increased by one.
+        ! Float columns use ES11.4 (matching the 4-digit-mantissa precision
+        ! of common.py's Python export, fmt=["%.4e"]*n_float_cols+["%d"]*n_stats),
+        ! written to a string buffer first and lower-cased afterwards: the ES
+        ! edit descriptor always emits an uppercase 'E' (e.g. "1.0000E-03"),
+        ! with no standard-Fortran option for lowercase, and a literal capital
+        ! E breaks the downstream visualization that expects "e".
+        write(line,910) rt, rt, elapsed, err_state, err_la, err_mu, &
+                       iwork(16), iwork(17), iwork(18), &
+                       iwork(14), iwork(15), 2 * iwork(19), 2 * iwork(20)
+910     format(es11.4,',',es11.4,',',es11.4,',',es11.4,',',es11.4,',',es11.4, &
+               ',',i8,',',i8,',',i8,',',i8,',',i8,',',i8,',',i8)
+        do ic = 1, len_trim(line)
+            if (line(ic:ic) == 'E') line(ic:ic) = 'e'
+        end do
+        write(10,'(A)') trim(line)
 
     end do
 
