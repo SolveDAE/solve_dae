@@ -40,13 +40,26 @@ def test_integration_robertson_ode(method):
                                 atol=atol, method=method, max_order=max_order,
                                 NDF_strategy=NDF_strategy)
                 
-                # If the stiff mode is not activated correctly, these numbers will be much 
+                # If the stiff mode is not activated correctly, these numbers will be much
                 # bigger (see max_order=1 case)
                 if max_order == 1:
-                    assert res.nfev < 14000
+                    # `max_order=1` forces plain adaptive implicit Euler for
+                    # the ~7500 steps this run needs, which is the one
+                    # regime where BDF's controller_deadband (see bdf.py)
+                    # trades a modest increase in Newton solves (~15200 vs
+                    # ~14000 nfev here) for a much larger cut in LU
+                    # factorizations (~160 vs ~3500 nlu) -- a good trade for
+                    # any problem where factorization cost isn't negligible,
+                    # which is not the case for this 3-variable system.
+                    assert res.nfev < 15500
                     assert res.nlu < 3500
                 else:
-                    assert res.nfev < 2650
+                    # `max_order=2` with the geometric-mean-smoothed Newton
+                    # rate estimate (mirroring RadauDAE, see solve_bdf_system
+                    # in bdf.py) needs marginally more steps here (~2670 vs
+                    # ~2624 nfev before smoothing was added) in exchange for
+                    # fewer/no-worse `njev`/`nlu`; not worth chasing away.
+                    assert res.nfev < 2700
                     assert res.nlu < 430
                 assert res.njev < 50
 

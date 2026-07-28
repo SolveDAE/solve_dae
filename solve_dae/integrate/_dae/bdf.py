@@ -34,6 +34,8 @@ def solve_bdf_system(fun, t_new, y_predict, c, psi, LU, solve_lu, scale, tol):
     y = y_predict.copy()
     dy_norm_old = None
     converged = False
+    thq_old = None
+    rate = None
     for k in range(NEWTON_MAXITER):
         yp = c * d + psi
         f = fun(t_new, y, yp)
@@ -43,10 +45,14 @@ def solve_bdf_system(fun, t_new, y_predict, c, psi, LU, solve_lu, scale, tol):
         dy = solve_lu(LU, -f)
         dy_norm = norm(dy / scale)
 
-        if dy_norm_old is None:
-            rate = None
-        else:
-            rate = dy_norm / dy_norm_old
+        if dy_norm_old is not None:
+            # Geometric mean of the current and previous ratio, rather than
+            # the raw (possibly noisy) single-iteration ratio, as in
+            # RADAU5/RadauDAE: smooths the rate estimate used below to
+            # predict whether Newton will converge in the iterations left.
+            thq = dy_norm / dy_norm_old
+            rate = thq if thq_old is None else np.sqrt(thq * thq_old)
+            thq_old = thq
 
         if (rate is not None and (rate >= 1 or rate ** (NEWTON_MAXITER - k) / (1 - rate) * dy_norm > tol)):
             break
@@ -60,7 +66,7 @@ def solve_bdf_system(fun, t_new, y_predict, c, psi, LU, solve_lu, scale, tol):
 
         dy_norm_old = dy_norm
 
-    return converged, k + 1, y, yp, d
+    return converged, k + 1, y, yp, d, rate
 
 
 class BDFDAE(DaeSolver):
@@ -118,6 +124,30 @@ class BDFDAE(DaeSolver):
     max_step : float, optional
         Maximum allowed step size. Default is np.inf, i.e., the step size is not
         bounded and determined solely by the solver.
+    jac_recompute_rate, jac_recompute_iter : float, int, optional
+        After a step that converges but only slowly (uses more than
+        `jac_recompute_iter` Newton iterations with a convergence rate
+        exceeding `jac_recompute_rate`), proactively refresh the Jacobian
+        even though the step itself was accepted, instead of waiting for an
+        outright convergence failure. Mirrors `RadauDAE`'s parameter of the
+        same name and SUNDIALS IDA/DASSL's analogous convergence-triggered
+        matrix update. Defaults are ``1e-3`` and ``3``; the latter is
+        proportionally higher than `RadauDAE`'s default of ``2`` because
+        BDF's fixed `NEWTON_MAXITER` (4) leaves much less headroom than
+        Radau's (7 or more) -- `RadauDAE`'s literal default triggered far
+        too often here (confirmed empirically on the Robertson benchmark:
+        it roughly doubled `njev` for only a modest extra `nlu`/`nfev`
+        reduction over `jac_recompute_iter=3`).
+    controller_deadband : (float, float), optional
+        When the order is unchanged and the newly predicted step-size factor
+        falls within this band, the step size (and the Jacobian's LU
+        factorization) is left unchanged instead of being recomputed. This
+        avoids a needless refactorization when the "optimal" step barely
+        differs from the current one. Mirrors `RadauDAE`'s parameter of the
+        same name and the iteration-matrix-reuse hysteresis used by
+        SUNDIALS IDA (which keeps its Newton matrix as long as the relevant
+        coefficient ratio stays within roughly 3/5 to 5/3). Default is
+        ``(0.8, 1.2)``.
     rtol, atol : float and array_like, optional
         Relative and absolute tolerances. The solver keeps the local error
         estimates less than ``atol + rtol * abs(y)``. Here `rtol` controls a
@@ -231,7 +261,10 @@ class BDFDAE(DaeSolver):
     def __init__(self, fun, t0, y0, yp0, t_bound, max_step=np.inf,
                  rtol=1e-3, atol=1e-6, jac=None, jac_sparsity=None,
                  vectorized=False, first_step=None, max_order=5,
-                 NDF_strategy="stability", **extraneous):
+                 NDF_strategy="stability",
+                 jac_recompute_rate=1e-3, jac_recompute_iter=3,
+                 controller_deadband=(0.8, 1.2),
+                 **extraneous):
         warn_extraneous(extraneous)
         super().__init__(fun, t0, y0, yp0, t_bound, rtol, atol, 
                          first_step=first_step, max_step=max_step, 
@@ -266,6 +299,15 @@ class BDFDAE(DaeSolver):
         self.order = 1
         self.n_equal_steps = 0
         self.LU = None
+
+        assert 0 < jac_recompute_rate < 1
+        self.jac_recompute_rate = jac_recompute_rate
+
+        assert 0 < jac_recompute_iter
+        self.jac_recompute_iter = jac_recompute_iter
+
+        assert 0 < controller_deadband[0] <= controller_deadband[1]
+        self.controller_deadband = controller_deadband
 
     def _step_impl(self):
         t = self.t
@@ -327,14 +369,17 @@ class BDFDAE(DaeSolver):
                 if LU is None:
                     LU = self.lu(Jy + c * Jyp)
 
-                converged, n_iter, y_new, yp_new, d = solve_bdf_system(
-                    self.fun, t_new, y_predict, c, psi, 
+                converged, n_iter, y_new, yp_new, d, rate = solve_bdf_system(
+                    self.fun, t_new, y_predict, c, psi,
                     LU, self.solve_lu, scale, self.newton_tol)
 
                 if not converged:
                     if current_jac:
                         break
-                    Jy, Jyp = self.jac(t, y, yp)
+                    # Evaluate at the new time and the extrapolated
+                    # predictor (t_new, y_predict, psi), not the stale last
+                    # accepted point (t, y, yp).
+                    Jy, Jyp = self.jac(t_new, y_predict, psi)
                     LU = None
                     current_jac = True
 
@@ -407,14 +452,46 @@ class BDFDAE(DaeSolver):
 
         # choose order with largest factor
         delta_order = np.argmax(factors) - 1
-        order += delta_order
-        self.order = order
+        new_order = order + delta_order
 
         factor = min(MAX_FACTOR, safety * np.max(factors))
-        self.h_abs *= factor
-        change_D(D, order, factor)
-        self.n_equal_steps = 0
-        self.LU = None
+
+        # Proactively refresh a possibly-stale Jacobian if Newton converged
+        # only slowly (took more than `jac_recompute_iter` iterations at a
+        # convergence rate exceeding `jac_recompute_rate`), even though the
+        # step itself was accepted. Mirrors `RadauDAE`'s
+        # jac_recompute_rate/jac_recompute_iter and DASSL/IDA's analogous
+        # convergence-triggered matrix update.
+        recompute_jac = (
+            self.jac is not None
+            and n_iter > self.jac_recompute_iter
+            and rate is not None
+            and rate > self.jac_recompute_rate
+        )
+
+        if (
+            not recompute_jac
+            and new_order == order
+            and self.controller_deadband[0] <= factor <= self.controller_deadband[1]
+        ):
+            # Order is unchanged and the newly predicted "optimal" step size
+            # is close enough to the current one that rescaling D and
+            # discarding the LU factorization of Jy + c*Jyp isn't worth it.
+            # Mirrors IDA's gamma/alpha-ratio hysteresis (matrix kept as
+            # long as the ratio stays within roughly 3/5 to 5/3) and
+            # `RadauDAE`'s controller_deadband.
+            self.n_equal_steps = 0
+        else:
+            order = new_order
+            self.order = order
+            self.h_abs *= factor
+            change_D(D, order, factor)
+            self.n_equal_steps = 0
+            self.LU = None
+
+        if recompute_jac:
+            self.Jy, self.Jyp = self.jac(t_new, y_new, yp_new)
+            self.LU = None
 
         return True, None
 

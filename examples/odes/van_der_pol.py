@@ -29,11 +29,6 @@ def F(t, y, yp):
     return yp - rhs(t, y)
 
 
-def f(t, z):
-    y, yp = z[:2], z[2:]
-    return np.concatenate((yp, F(t, y, yp)))
-
-
 if __name__ == "__main__":
     # time span
     t0 = 0
@@ -57,7 +52,7 @@ if __name__ == "__main__":
     print(f"fnorm: {fnorm}")
 
     # solver options
-    atol = rtol = 7e-5
+    atol = rtol = 1e-6
 
     t_eval = np.linspace(t0, t1, num=int(1e3))
     t_eval = None
