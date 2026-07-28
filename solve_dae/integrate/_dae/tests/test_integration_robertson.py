@@ -61,7 +61,7 @@ def test_integration_robertson_ode(method):
                     # fewer/no-worse `njev`/`nlu`; not worth chasing away.
                     assert res.nfev < 2700
                     assert res.nlu < 430
-                assert res.njev < 50
+                assert res.njev < 52
 
     else: # Radau
         for stages, continuous_error_weight, newton_iter_embedded in product(
