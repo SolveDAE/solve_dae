@@ -2,6 +2,7 @@ from itertools import groupby
 import numpy as np
 # note: use sparse QR when available in scipy
 from scipy.linalg import qr, solve_triangular
+from scipy.sparse import issparse
 from scipy.integrate._ivp.common import norm, EPS
 from scipy.optimize._numdiff import approx_derivative
 
@@ -197,6 +198,12 @@ def consistent_initial_conditions(fun, t0, y0, yp0, jac=None, fixed_y0=None,
     ``examples/daes/andrews.py`` for an index-2/3 example that hardcodes
     literature values instead of calling this function).
 
+    `jac`, if given, may return `Jy` and/or `Jyp` as sparse matrices (e.g.
+    the same callable already used for `solve_dae`/`BDF`/`Radau`, which are
+    allowed to return sparse Jacobians). Since the underdetermined system is
+    solved here with a dense, pivoted QR decomposition, any sparse output is
+    converted to a dense array internally before use.
+
         References
     ----------
     .. [1] L. F. Shampine, "Solving 0 = F(t, y(t), y'(t)) in Matlab", Journal
@@ -218,7 +225,20 @@ def consistent_initial_conditions(fun, t0, y0, yp0, jac=None, fixed_y0=None,
             J = J.reshape((n, 2 * n))
             Jy, Jyp = J[:, :n], J[:, n:]
             return Jy, Jyp
-    
+
+    user_jac = jac
+
+    def jac(t, y, yp):
+        # Accept a Jacobian callable that returns sparse Jy/Jyp (as used
+        # elsewhere in solve_dae) and densify it here, since the QR-based
+        # underdetermined solve below requires dense arrays.
+        Jy, Jyp = user_jac(t, y, yp)
+        if issparse(Jy):
+            Jy = Jy.toarray()
+        if issparse(Jyp):
+            Jyp = Jyp.toarray()
+        return np.asarray(Jy, dtype=float), np.asarray(Jyp, dtype=float)
+
     if fixed_y0 is None:
         free_y = np.arange(n)
     else:
@@ -248,22 +268,52 @@ def consistent_initial_conditions(fun, t0, y0, yp0, jac=None, fixed_y0=None,
     yp0 = np.asarray(yp0, dtype=float).reshape(-1)
     f = fun(t0, y0, yp0, *args)
     Jy, Jyp = jac(t0, y0, yp0)
-    
+
     scale_f = atol + np.abs(f) * rtol
+    atol_arr = np.broadcast_to(np.asarray(atol, dtype=float), y0.shape)
+    resnrm0 = norm(f)
 
     for _ in range(newton_maxiter):
+        # Factorize the Jacobian pencil once per Newton (outer) iteration and
+        # reuse it for all chord iterations below.
+        factors = factorize_underdetermined_system(Jy, Jyp, free_y, free_yp)
+
         for _ in range(chord_iter):
-            dy, dyp = solve_underdetermined_system(f, Jy, Jyp, free_y, free_yp)            
-            y0 += dy
-            yp0 += dyp
+            dy, dyp = solve_underdetermined_system(f, factors)
+
+            # Trust region: cap the correction to at most a factor of 2
+            # relative to the current iterate (with an atol-based floor for
+            # iterates close to zero). Without this, a poor initial guess
+            # combined with a strongly nonlinear F can make the raw
+            # chord/Newton step overshoot and diverge instead of damping
+            # towards the solution.
+            nrm_state = max(norm(np.concatenate((y0, yp0))), norm(atol_arr))
+            nrm_step = norm(np.concatenate((dy, dyp)))
+            if nrm_step > 2 * nrm_state:
+                step_scale = 2 * nrm_state / nrm_step
+                dy = dy * step_scale
+                dyp = dyp * step_scale
+                nrm_step = 2 * nrm_state
+
+            y0 = y0 + dy
+            yp0 = yp0 + dyp
 
             f = fun(t0, y0, yp0, *args)
+            resnrm = norm(f)
             error = norm(f / scale_f)
-            if error < safety:
+
+            # Convergence requires both: the residual must be small in an
+            # absolute sense (relative to the tolerances) *and* not worse
+            # than where we started, and the correction itself must have
+            # become small relative to the current iterate. Checking the
+            # residual alone (as before) can declare "convergence" while the
+            # Newton/chord step is still moving substantially.
+            if (error < safety and resnrm <= resnrm0
+                    and nrm_step <= 1e-3 * rtol * nrm_state):
                 return y0, yp0, f
-        
+
         Jy, Jyp = jac(t0, y0, yp0)
-    
+
     raise RuntimeError("Convergence failed.")
 
 
@@ -275,106 +325,137 @@ def qrank(A):
     return rank, Q, R, p
 
 
-def solve_underdetermined_system(f, Jy, Jyp, free_y, free_yp):
-    """Solve the underdetermined system 
-        0 = f + Jy @ Delta_y + Jyp @ Delta_yp
-    A solution is obtained with as many components as possible of 
-    (transformed) Delta_y and Delta_yp set to zero.
-    """
-    n = len(f)
-    Delta_y = np.zeros(n)
-    Delta_yp = np.zeros(n)
+def factorize_underdetermined_system(Jy, Jyp, free_y, free_yp):
+    """Factorize the Jacobian pencil ``Jy, Jyp`` of the underdetermined system
 
+        0 = f + Jy @ Delta_y + Jyp @ Delta_yp
+
+    Only the QR-decompositions and rank information are computed here; the
+    factors are independent of ``f`` and can be reused for repeated chord
+    iterations (see `solve_underdetermined_system`).
+    """
+    n = Jy.shape[0]
     fixed = (n - len(free_y)) + (n - len(free_yp))
+
+    def check_rankdef(rankdef):
+        if rankdef > 0:
+            if rankdef <= fixed:
+                raise ValueError(f"Too many fixed components, rank deficiency is {rankdef}.")
+            else:
+                raise ValueError("Index greater than one.")
+
     if len(free_y) == 0:
         # solve 0 = f + Jyp @ Delta_yp (ODE case)
         rank, Q, R, p = qrank(Jyp)
-        rankdef = n - rank
-        if rankdef > 0:
-            if rankdef <= fixed:
-                raise ValueError(f"Too many fixed components, rank deficiency is {rankdef}.")
-            else:
-                raise ValueError("Index greater than one.")
-        d = -Q.T @ f
-        Delta_yp_ = np.zeros_like(Delta_yp)
-        Delta_yp_[p] = solve_triangular(R, d)
-        Delta_yp[free_yp] = Delta_yp_
-        return Delta_y, Delta_yp
-    
+        check_rankdef(n - rank)
+        return ("yp_only", n, free_y, free_yp, rank, Q, R, p)
+
     if len(free_yp) == 0:
         # solve 0 = f + Jy @ Delta_y (pure algebraic case)
         rank, Q, R, p = qrank(Jy)
-        rankdef = n - rank
-        if rankdef > 0:
-            if rankdef <= fixed:
-                raise ValueError(f"Too many fixed components, rank deficiency is {rankdef}.")
-            else:
-                raise ValueError("Index greater than one.")
-        d = -Q.T @ f
-        Delta_y_ = np.zeros_like(Delta_y)
-        Delta_y_[p] = solve_triangular(R, d)
-        Delta_y[free_y] = Delta_y_
-        return Delta_y, Delta_yp
-    
+        check_rankdef(n - rank)
+        return ("y_only", n, free_y, free_yp, rank, Q, R, p)
+
     # eliminate variables that are not free
     Jy = Jy[:, free_y]
     Jyp = Jyp[:, free_yp]
-    
+
     # QR-decomposition of Fyp leads to the system
     # [R11, R12] [w1'] + [S11, S12] [w1] = [d1]
     # [  0,   0] [w2'] + [S21, S22] [w2] = [d2]
     # with S = Q.T @ Fy
     rank, Q, R, p = qrank(Jyp)
-    d = -Q.T @ f
     if rank == n:
-        # Full rank (ODE) case: 
-        # Set all free dy to zero and solve triangular system below
-        Delta_y[free_y] = 0
-        Delta_yp_ = np.zeros_like(Delta_yp)
-        Delta_yp_[p] = solve_triangular(R, d)
-        Delta_yp[free_yp] = Delta_yp_
-    else:
-        # Rank deficient (DAE) case:
-        S = Q.T @ Jy
-        rankS, QS, RS, pS = qrank(S[rank:])
-        rankdef = n - (rank + rankS)
-        if rankdef > 0:
-            if rankdef <= fixed:
-                raise ValueError(f"Too many fixed components, rank deficiency is {rankdef}.")
-            else:
-                raise ValueError("Index greater than one.")
-        
-        # decompose d
-        d1 = d[:rank]
-        d2 = d[rank:]
+        # Full rank (ODE) case
+        return ("full_rank", n, free_y, free_yp, rank, Q, R, p)
 
-        # compute basic solution of underdetermined system
-        # [S21, S22] [w1] = d2
-        #            [w2]
-        # using column pivoting QR-decomposition
-        # [RS11, RS12] [v1] = [c1]
-        # [   0,    0] [v2]   [c2]
-        # with v2 = 0 this gives
-        # RS11 @ v1 = c1
-        c = QS.T @ d2
-        v = np.zeros(RS.shape[1])
-        v[:rankS] = solve_triangular(RS[:rankS, :rankS], c[:rankS])
+    # Rank deficient (DAE) case:
+    S = Q.T @ Jy
+    rankS, QS, RS, pS = qrank(S[rank:])
+    check_rankdef(n - (rank + rankS))
 
-        # apply permutation
-        w = np.zeros_like(v)
-        w[pS] = v
+    return ("rank_deficient", n, free_y, free_yp, rank, Q, R, p, S, rankS, QS, RS, pS)
 
-        # set w2' = 0 and solve the remaining system
-        # [R11] w1' = d1 - [S11, S12] [w1]
-        #                             [w2]
-        wp = np.zeros(R.shape[1])
-        if rank > 0:
-            wp_ = np.zeros(R.shape[1])
-            wp_[:rank] = solve_triangular(R[:rank, :rank], d1 - S[:rank] @ w)
-            wp[p] = wp_
 
-        # store w and wp
-        Delta_y[free_y] = w
-        Delta_yp[free_yp] = wp
-    
+def solve_underdetermined_system(f, factors):
+    """Solve the underdetermined system
+        0 = f + Jy @ Delta_y + Jyp @ Delta_yp
+    for the given right-hand side `f`, using a Jacobian pencil already
+    factorized by `factorize_underdetermined_system`.
+    A solution is obtained with as many components as possible of
+    (transformed) Delta_y and Delta_yp set to zero.
+    """
+    case = factors[0]
+    n, free_y, free_yp = factors[1], factors[2], factors[3]
+    Delta_y = np.zeros(n)
+    Delta_yp = np.zeros(n)
+
+    match case:
+        # if case == "yp_only":
+        case "yp_only":
+            _, _, _, _, rank, Q, R, p = factors
+            d = -Q.T @ f
+            Delta_yp_ = np.zeros_like(Delta_yp)
+            Delta_yp_[p] = solve_triangular(R, d)
+            Delta_yp[free_yp] = Delta_yp_
+            return Delta_y, Delta_yp
+
+        # if case == "y_only":
+        case "y_only":
+            _, _, _, _, rank, Q, R, p = factors
+            d = -Q.T @ f
+            Delta_y_ = np.zeros_like(Delta_y)
+            Delta_y_[p] = solve_triangular(R, d)
+            Delta_y[free_y] = Delta_y_
+            return Delta_y, Delta_yp
+
+        # if case == "full_rank":
+        case "full_rank":
+            _, _, _, _, rank, Q, R, p = factors
+            d = -Q.T @ f
+            # Set all free dy to zero and solve triangular system below
+            Delta_y[free_y] = 0
+            Delta_yp_ = np.zeros_like(Delta_yp)
+            Delta_yp_[p] = solve_triangular(R, d)
+            Delta_yp[free_yp] = Delta_yp_
+            return Delta_y, Delta_yp
+
+        case _:
+            # case == "rank_deficient"
+            _, _, _, _, rank, Q, R, p, S, rankS, QS, RS, pS = factors
+            d = -Q.T @ f
+
+    # decompose d
+    d1 = d[:rank]
+    d2 = d[rank:]
+
+    # compute basic solution of underdetermined system
+    # [S21, S22] [w1] = d2
+    #            [w2]
+    # using column pivoting QR-decomposition
+    # [RS11, RS12] [v1] = [c1]
+    # [   0,    0] [v2]   [c2]
+    # with v2 = 0 this gives
+    # RS11 @ v1 = c1
+    c = QS.T @ d2
+    v = np.zeros(RS.shape[1])
+    v[:rankS] = solve_triangular(RS[:rankS, :rankS], c[:rankS])
+
+    # apply permutation
+    w = np.zeros_like(v)
+    w[pS] = v
+
+    # set w2' = 0 and solve the remaining system
+    # [R11] w1' = d1 - [S11, S12] [w1]
+    #                             [w2]
+    wp = np.zeros(R.shape[1])
+    if rank > 0:
+        wp_ = np.zeros(R.shape[1])
+        wp_[:rank] = solve_triangular(R[:rank, :rank], d1 - S[:rank] @ w)
+        wp[p] = wp_
+
+    # store w and wp
+    Delta_y[free_y] = w
+    Delta_yp[free_yp] = wp
+
     return Delta_y, Delta_yp
