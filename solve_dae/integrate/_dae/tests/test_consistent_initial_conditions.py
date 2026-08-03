@@ -2,7 +2,11 @@
 import pytest
 from itertools import product
 import numpy as np
+from scipy.sparse import csr_matrix, csc_matrix
 from solve_dae.integrate import consistent_initial_conditions
+from solve_dae.integrate._dae.common import (
+    factorize_underdetermined_system, solve_underdetermined_system, norm,
+)
 
 rtol = 1e-5
 atol = 1e-5
@@ -189,6 +193,159 @@ def test_implicit_with_args_and_default_jacobian():
         fun_implicit_with_args, t0, y0, yp0, None, None, None,
         rtol, atol, 10, 3, 0.5, scale)
     assert np.allclose(f0, np.zeros_like(f0), rtol=rtol, atol=atol)
+
+
+def jac_implicit_sparse(t, y, yp, sparse_Jy, sparse_Jyp):
+    Jy = np.array([[0, -1], [1, 1]], dtype=float)
+    Jyp = np.array([[2, 0], [0, 0]], dtype=float)
+    if sparse_Jy:
+        Jy = csr_matrix(Jy)
+    if sparse_Jyp:
+        Jyp = csc_matrix(Jyp)
+    return Jy, Jyp
+
+
+@pytest.mark.parametrize("sparse_Jy, sparse_Jyp", [
+    (True, True), (True, False), (False, True),
+])
+def test_sparse_jacobian(sparse_Jy, sparse_Jyp):
+    # `jac` may return Jy and/or Jyp as sparse matrices (the same convention
+    # used by `solve_dae`/`BDF`/`Radau`); they must be densified internally
+    # before the dense, pivoted-QR-based solve.
+    t0 = 0
+    y0 = [1, 0]
+    yp0 = [0, 0]
+
+    def jac(t, y, yp):
+        return jac_implicit_sparse(t, y, yp, sparse_Jy, sparse_Jyp)
+
+    f0 = fun_implicit(t0, y0, yp0)
+    assert not np.allclose(f0, np.zeros_like(f0), rtol=rtol, atol=atol)
+
+    y0, yp0, f0 = consistent_initial_conditions(
+        fun_implicit, t0, y0, yp0, jac, rtol=rtol, atol=atol)
+    assert np.allclose(f0, np.zeros_like(f0), rtol=rtol, atol=atol)
+
+
+def test_trust_region_triggered():
+    # A single scalar equation yp = 1e6 with an initial guess of yp = 0: the
+    # raw (undamped) chord correction jumps straight to 1e6, which is far
+    # more than twice the current, near-zero state. This must engage the
+    # trust region inside `consistent_initial_conditions` instead of taking
+    # the raw step directly.
+    def fun_trust(t, y, yp):
+        return np.array([yp[0] - 1e6])
+
+    def jac_trust(t, y, yp):
+        return np.zeros((1, 1)), np.array([[1.0]])
+
+    t0 = 0.0
+    y0 = np.array([0.0])
+    yp0 = np.array([0.0])
+
+    # Confirm the precondition directly: the undamped correction is huge
+    # relative to the current state, so the trust region must trigger.
+    f = fun_trust(t0, y0, yp0)
+    Jy, Jyp = jac_trust(t0, y0, yp0)
+    factors = factorize_underdetermined_system(
+        Jy, Jyp, np.array([], dtype=int), np.array([0]))
+    dy, dyp = solve_underdetermined_system(f, factors)
+    nrm_state = max(norm(np.concatenate((y0, yp0))), norm(np.array([atol])))
+    nrm_step = norm(np.concatenate((dy, dyp)))
+    assert nrm_step > 2 * nrm_state
+
+    y0, yp0, f0 = consistent_initial_conditions(
+        fun_trust, t0, y0, yp0, jac_trust, fixed_y0=[0],
+        rtol=rtol, atol=atol)
+    assert np.allclose(yp0, [1e6], rtol=rtol, atol=atol)
+    assert np.allclose(f0, np.zeros_like(f0), rtol=rtol, atol=atol)
+
+
+def test_too_many_components_fixed():
+    # Fixing every component of both y0 and yp0 leaves nothing for the
+    # solver to adjust, which must be rejected before any linear algebra is
+    # attempted.
+    t0 = 0
+    y0 = [1, 0]
+    yp0 = [0, 0]
+    with pytest.raises(ValueError, match="Too many components fixed"):
+        consistent_initial_conditions(
+            fun_implicit, t0, y0, yp0, jac_implicit,
+            fixed_y0=[0, 1], fixed_yp0=[0, 1], rtol=rtol, atol=atol)
+
+
+def test_too_many_fixed_rank_deficient():
+    # `fun_algebraic` has Jyp identically zero (it is a pure algebraic
+    # constraint). Fixing both components of y0 leaves only the (rank-zero)
+    # Jyp block to solve, which is a distinct, finer-grained "too many
+    # fixed" check than the coarse free-variable count in
+    # `consistent_initial_conditions` itself -- this one is only detected
+    # once `factorize_underdetermined_system` inspects the actual rank of
+    # the Jacobian pencil.
+    t0 = 0
+    y0 = [-2, 0.5]
+    yp0 = [0.1, 0.2]
+    with pytest.raises(ValueError, match="Too many fixed components"):
+        consistent_initial_conditions(
+            fun_algebraic, t0, y0, yp0, jac_algebraic,
+            fixed_y0=[0, 1], fixed_yp0=None, rtol=rtol, atol=atol)
+
+
+def test_index_greater_than_one():
+    # A Jacobian pencil that is identically singular in both Jy and Jyp,
+    # with nothing fixed, cannot be resolved by fixing any component --
+    # `factorize_underdetermined_system` must report this as an index > 1
+    # problem rather than a fixable "too many fixed" case.
+    def fun_zero(t, y, yp):
+        return np.zeros(2)
+
+    def jac_zero(t, y, yp):
+        return np.zeros((2, 2)), np.zeros((2, 2))
+
+    t0 = 0
+    y0 = [1.0, 1.0]
+    yp0 = [1.0, 1.0]
+    with pytest.raises(ValueError, match="Index greater than one"):
+        consistent_initial_conditions(
+            fun_zero, t0, y0, yp0, jac_zero, rtol=rtol, atol=atol)
+
+
+def test_invalid_rtol():
+    with pytest.raises(ValueError, match="Relative tolerance must be a positive scalar"):
+        consistent_initial_conditions(
+            fun_implicit, 0, [1, 0], [0, 0], jac_implicit, rtol=-1e-5, atol=atol)
+
+
+def test_rtol_below_eps_is_increased(capsys):
+    # Too-tight a `rtol` is silently floored to 100 * eps (with a message),
+    # rather than being rejected or causing spurious non-convergence.
+    t0 = 0
+    y0 = [1, 0]
+    yp0 = [0, 0]
+    y0, yp0, f0 = consistent_initial_conditions(
+        fun_implicit, t0, y0, yp0, jac_implicit, rtol=1e-20, atol=atol)
+    assert "Relative tolerance increased" in capsys.readouterr().out
+    assert np.allclose(f0, np.zeros_like(f0), rtol=rtol, atol=atol)
+
+
+def test_invalid_atol():
+    with pytest.raises(ValueError, match="Absolute tolerance must be positive"):
+        consistent_initial_conditions(
+            fun_implicit, 0, [1, 0], [0, 0], jac_implicit, rtol=rtol, atol=-1e-5)
+
+
+def test_convergence_failure():
+    # With only a single, undamped chord iteration allowed, a genuinely
+    # nonlinear problem started far from its solution cannot converge, and
+    # `consistent_initial_conditions` must report this rather than silently
+    # returning an inconsistent point.
+    t0 = 1.0
+    y0 = np.array([1.2])
+    yp0 = np.array([1.5])
+    with pytest.raises(RuntimeError, match="Convergence failed"):
+        consistent_initial_conditions(
+            fun_weissinger, t0, y0, yp0, None, None, None,
+            rtol, atol, 1, 1, 0.5)
 
 
 # if __name__ == "__main__":

@@ -248,7 +248,7 @@ class DaeSolver:
         self.lu = lu
         self.solve_lu = solve_lu
     
-    def __repr__(self):
+    def __repr__(self): # pragma: no cover
         return (
             f"{type(self).__name__}("
             f"t={self.t:.4g}, "
@@ -398,10 +398,10 @@ class DaeSolver:
             raise RuntimeError("Dense output is available after a successful step was made.")
         return self._dense_output_impl()
 
-    def _step_impl(self):
+    def _step_impl(self): # pragma: no cover
         raise NotImplementedError
 
-    def _dense_output_impl(self):
+    def _dense_output_impl(self): # pragma: no cover
         raise NotImplementedError
 
 
@@ -442,5 +442,5 @@ class DAEDenseOutput:
             raise ValueError("`t` must be a float or a 1-D array.")
         return self._call_impl(t)
 
-    def _call_impl(self, t):
+    def _call_impl(self, t): # pragma: no cover
         raise NotImplementedError
