@@ -13,11 +13,11 @@ _REPO_ROOT = os.path.abspath(os.path.join(_BENCHMARKS_DIR, "..", "..", "..", "..
 
 
 solvers = [
-    # ("Radau", {"stages": 3}),
+    ("Radau", {"stages": 3}),
     ("Radau", {"stages": 5}),
-    # ("Radau", {"stages": 7}),
+    ("Radau", {"stages": 7}),
     # ("BDF", {"NDF_strategy": "stability"}),
-    ("BDF", {"NDF_strategy": "accuracy"}),
+    # ("BDF", {"NDF_strategy": "accuracy"}),
     # ("BDF", {"NDF_strategy": None}),
 ]
 
@@ -52,8 +52,18 @@ def benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, name, y_ref=None, yp_ref=No
 
     n_mult = 0 if mult_idx is None else len(mult_idx)
 
-    # benchmark results
-    results = np.zeros((len(solvers), len(rtols), 4 + n_mult if mult_idx is not None else 3))
+    # solver statistics reported alongside the error metrics, matching what
+    # the RADAU5 (particle_radau5.f90) and IDA (particle.c) drivers export:
+    # nstep = naccpt + nrejct is the total number of attempted steps, nfev/
+    # njev/nlu/nlusolve are the usual rhs/Jacobian/LU-factorization/LU-solve
+    # counts (see solve_dae/integrate/_dae/base.py).
+    stat_names = ["nstep", "naccpt", "nrejct", "nfev", "njev", "nlu", "nlusolve"]
+    n_stats = len(stat_names)
+
+    # benchmark results (rtol, atol appended as the last two columns so
+    # every other column keeps its existing, hardcoded index)
+    n_cols = (4 + n_mult if mult_idx is not None else 3) + n_stats + 2
+    results = np.zeros((len(solvers), len(rtols), n_cols))
 
     if y_ref is None or yp_ref is None:
         # Some benchmark problems only supply a literature-quoted y_ref
@@ -116,21 +126,24 @@ def benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, name, y_ref=None, yp_ref=No
             print(f"     => error_y: {error_y}")
             print(f"     => error_yp: {error_yp}")
 
+            stats = [getattr(sol, stat_name) for stat_name in stat_names]
+            print(f"     => stats ({', '.join(stat_names)}): {stats}")
+
             if mult_idx is not None:
                 # state and multiplier errors reported separately, see
                 # docstring above for why they must not be lumped together
                 error_state = np.linalg.norm(diff_y)
                 print(f"     => error_state: {error_state}")
 
-                row = [elapsed_time, error_y, error_yp, error_state]
+                row = [rtol, atol, elapsed_time, error_y, error_yp, error_state]
                 for k, idx in enumerate(mult_idx):
                     err_k = abs(yp_ref[idx] - sol.yp[idx, -1])
                     name_k = mult_names[k] if mult_names is not None else f"mult{k}"
                     print(f"     => error_{name_k}: {err_k}")
                     row.append(err_k)
-                results[i, j] = row
+                results[i, j] = row + stats
             else:
-                results[i, j] = (elapsed_time, error_y, error_yp)
+                results[i, j] = [rtol, atol, elapsed_time, error_y, error_yp] + stats
 
     mult_labels = None
     if mult_idx is not None:
@@ -140,15 +153,16 @@ def benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, name, y_ref=None, yp_ref=No
 
     for i, ri in enumerate(results):
         if mult_idx is not None:
-            # columns: elapsed_time, error_y, error_yp, error_state, *mult_errors
-            ax.plot(ri[:, 0], ri[:, 3], label=f"{solvers[i]} (state)")
+            # columns: rtol, atol, elapsed_time, error_y, error_yp, error_state, *mult_errors
+            ax.plot(ri[:, 2], ri[:, 5], label=f"{solvers[i]} (state)")
             for k, mult_label in enumerate(mult_labels):
-                ax.plot(ri[:, 0], ri[:, 4 + k], linestyle="--",
+                ax.plot(ri[:, 2], ri[:, 6 + k], linestyle="--",
                          label=f"{solvers[i]} ({mult_label})")
-            ax.plot(ri[:, 0], ri[:, 1], linestyle=":", label=f"{solvers[i]} (naive y)")
-            ax.plot(ri[:, 0], ri[:, 2], linestyle=":", label=f"{solvers[i]} (naive yp)")
+            ax.plot(ri[:, 2], ri[:, 3], linestyle=":", label=f"{solvers[i]} (naive y)")
+            ax.plot(ri[:, 2], ri[:, 4], linestyle=":", label=f"{solvers[i]} (naive yp)")
         else:
-            ax.plot(ri[:, 0], ri[:, 1], label=solvers[i])
+            # columns: rtol, atol, elapsed_time, error_y, error_yp
+            ax.plot(ri[:, 2], ri[:, 3], label=solvers[i])
 
     def _ida_csv(subdir, filename):
         return os.path.join(_BENCHMARKS_DIR, subdir, filename)
@@ -170,32 +184,45 @@ def benchmark(t0, t1, y0, yp0, F, rtols, atols, h0s, name, y_ref=None, yp_ref=No
         result_IDA[:, 1] *= 100 # scale elapsed time by 100
         ax.plot(*result_IDA.T, label="sundials IDA (elapsed time *= 100)")
     elif name == "Particle":
-        # columns: rtol, elapsed_time, error_y, error_yp, error_state, error_la, error_mu
+        # columns: rtol, atol, elapsed_time, error_y, error_yp, error_state, error_la, error_mu, ...
         result_IDA = np.loadtxt(_ida_csv("particle", "particle_errors_IDA.csv"), delimiter=',', skiprows=1)
-        elapsed_IDA = result_IDA[:, 1]# * 100 # scale elapsed time by 100
-        error_state_IDA = result_IDA[:, 4]
+        elapsed_IDA = result_IDA[:, 2]# * 100 # scale elapsed time by 100
+        error_state_IDA = result_IDA[:, 5]
         ax.plot(elapsed_IDA, error_state_IDA, label="sundials IDA (state x, y, u, v)")
 
+        # columns: rtol, atol, elapsed_time, error_state, error_la, error_mu, ...
         result_RADAU5 = np.loadtxt(_ida_csv("particle", "particle_errors_RADAU5.csv"), delimiter=',', skiprows=1)
-        elapsed_RADAU5 = result_RADAU5[:, 1]# * 100 # scale elapsed time by 100
-        error_state_RADAU5 = result_RADAU5[:, 2]
+        elapsed_RADAU5 = result_RADAU5[:, 2]# * 100 # scale elapsed time by 100
+        error_state_RADAU5 = result_RADAU5[:, 3]
         ax.plot(elapsed_RADAU5, error_state_RADAU5, label="RADAU5 (state x, y, u, v)")
     elif name == "Weissinger":
         result_IDA = np.loadtxt(_ida_csv("weissinger", "weissinger_errors_IDA.csv"), delimiter=',')
         result_IDA[:, 1] *= 500 # scale elapsed time by 500
         ax.plot(*result_IDA.T, label="sundials IDA (elapsed time *= 500)")
 
-    # export errors and elapsed time
+    # export errors, elapsed time and solver statistics
     if mult_idx is not None:
-        header = "elapsed_time, error_y, error_yp, error_state, " + \
+        header = "rtol, atol, elapsed_time, error_y, error_yp, error_state, " + \
             ", ".join(f"error_{nm}" for nm in mult_labels)
+        n_float_cols = 6 + n_mult
     else:
-        header = "elapsed_time, error_y, error_yp"
+        header = "rtol, atol, elapsed_time, error_y, error_yp"
+        n_float_cols = 5
+    header += ", " + ", ".join(stat_names)
+
+    # `results` is a single float64 array (rtol/atol/elapsed_time/errors are
+    # genuinely float, but the trailing stat_names columns are step/eval
+    # counts) -- without an explicit per-column `fmt`, savetxt's default
+    # "%.18e" formats those integer counts too, e.g. "1.041000000000000000e+03"
+    # instead of "1041". Format the float columns in scientific notation and
+    # the trailing stats columns as plain integers.
+    fmt = ["%.4e"] * n_float_cols + ["%d"] * n_stats
 
     for i, ri in enumerate(results):
         np.savetxt(
             f"{name}_{solvers[i]}.txt",
             ri,
+            fmt=fmt,
             delimiter=", ",
             header=header,
             comments="",
